@@ -15,8 +15,8 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     d.DepartmentName
-FROM Employees e
-INNER JOIN Departments d ON d.DepartmentID = e.DepartmentID;
+FROM Employees AS e
+INNER JOIN Departments AS d ON d.DepartmentID = e.DepartmentID;
 
 -- Solution 2: Subquery
 SELECT 
@@ -24,10 +24,10 @@ SELECT
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     (
         SELECT d.DepartmentName 
-        FROM Departments d 
+        FROM Departments AS d 
         WHERE d.DepartmentID = e.DepartmentID
     ) AS DepartmentName
-FROM Employees e;
+FROM Employees AS e;
 
 -- Solution 3: CTE
 WITH EmpDept AS (
@@ -35,8 +35,8 @@ WITH EmpDept AS (
         e.EmployeeID,
         CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
         d.DepartmentName
-    FROM Employees e
-    INNER JOIN Departments d ON d.DepartmentID = e.DepartmentID
+    FROM Employees AS e
+    INNER JOIN Departments AS d ON d.DepartmentID = e.DepartmentID
 )
 SELECT * FROM EmpDept;
 
@@ -51,7 +51,7 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     e.EmploymentStatus
-FROM Employees e
+FROM Employees AS e
 WHERE e.EmploymentStatus = N'Active';
 
 -- Solution 2: Subquery
@@ -59,10 +59,10 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     e.EmploymentStatus
-FROM Employees e
+FROM Employees AS e
 WHERE e.EmployeeID IN (
     SELECT e2.EmployeeID
-    FROM Employees e2
+    FROM Employees AS e2
     WHERE e2.EmploymentStatus = N'Active'
 );
 
@@ -89,7 +89,7 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     e.HireDate
-FROM Employees e
+FROM Employees AS e
 WHERE e.HireDate > '2022-01-01';
 
 -- Solution 2: Subquery
@@ -97,10 +97,10 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     e.HireDate
-FROM Employees e
+FROM Employees AS e
 WHERE e.EmployeeID IN (
     SELECT e2.EmployeeID
-    FROM Employees e2
+    FROM Employees AS e2
     WHERE e2.HireDate > '2022-01-01'
 );
 
@@ -127,7 +127,7 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     e.City
-FROM Employees e
+FROM Employees AS e
 WHERE e.City = N'Tehran';
 
 -- Solution 2: Subquery (EXISTS)
@@ -135,10 +135,10 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     e.City
-FROM Employees e
+FROM Employees AS e
 WHERE EXISTS (
     SELECT 1 
-    FROM Employees e2 
+    FROM Employees AS e2 
     WHERE e2.EmployeeID = e.EmployeeID 
       AND e2.City = N'Tehran'
 );
@@ -165,8 +165,8 @@ FROM TehranEmployees;
 SELECT 
     d.DepartmentName,
     COUNT(e.EmployeeID) AS EmployeeCount
-FROM Departments d
-LEFT JOIN Employees e ON e.DepartmentID = d.DepartmentID
+FROM Departments AS d
+LEFT JOIN Employees AS e ON e.DepartmentID = d.DepartmentID
 GROUP BY d.DepartmentName;
 
 -- Solution 2: Subquery
@@ -174,10 +174,10 @@ SELECT
     d.DepartmentName,
     (
         SELECT COUNT(*)
-        FROM Employees e
+        FROM Employees AS e
         WHERE e.DepartmentID = d.DepartmentID
     ) AS EmployeeCount
-FROM Departments d;
+FROM Departments AS d;
 
 -- Solution 3: CTE
 WITH DeptCounts AS (
@@ -190,8 +190,8 @@ WITH DeptCounts AS (
 SELECT 
     d.DepartmentName,
     ISNULL(dc.EmployeeCount, 0) AS EmployeeCount
-FROM Departments d
-LEFT JOIN DeptCounts dc ON dc.DepartmentID = d.DepartmentID;
+FROM Departments AS d
+LEFT JOIN DeptCounts AS dc ON dc.DepartmentID = d.DepartmentID;
 
 
 -- ------------------------------------------------------------
@@ -203,8 +203,8 @@ LEFT JOIN DeptCounts dc ON dc.DepartmentID = d.DepartmentID;
 SELECT 
     d.DepartmentName,
     AVG(e.BaseSalary) AS AvgBaseSalary
-FROM Departments d
-INNER JOIN Employees e ON e.DepartmentID = d.DepartmentID
+FROM Departments AS d
+INNER JOIN Employees AS e ON e.DepartmentID = d.DepartmentID
 GROUP BY d.DepartmentName;
 
 -- Solution 2: Subquery
@@ -212,10 +212,10 @@ SELECT
     d.DepartmentName,
     (
         SELECT AVG(e.BaseSalary)
-        FROM Employees e
+        FROM Employees AS e
         WHERE e.DepartmentID = d.DepartmentID
     ) AS AvgBaseSalary
-FROM Departments d;
+FROM Departments AS d;
 
 -- Solution 3: CTE
 WITH AvgSalary AS (
@@ -228,8 +228,8 @@ WITH AvgSalary AS (
 SELECT 
     d.DepartmentName,
     a.AvgBaseSalary
-FROM Departments d
-LEFT JOIN AvgSalary a ON a.DepartmentID = d.DepartmentID;
+FROM Departments AS d
+LEFT JOIN AvgSalary AS a ON a.DepartmentID = d.DepartmentID;
 
 
 -- ------------------------------------------------------------
@@ -241,8 +241,8 @@ LEFT JOIN AvgSalary a ON a.DepartmentID = d.DepartmentID;
 SELECT 
     d.DepartmentName,
     MAX(e.BaseSalary) AS MaxBaseSalary
-FROM Departments d
-INNER JOIN Employees e ON e.DepartmentID = d.DepartmentID
+FROM Departments AS d
+INNER JOIN Employees AS e ON e.DepartmentID = d.DepartmentID
 GROUP BY d.DepartmentName;
 
 -- Solution 2: Subquery
@@ -250,10 +250,10 @@ SELECT
     d.DepartmentName,
     (
         SELECT MAX(e.BaseSalary)
-        FROM Employees e
+        FROM Employees AS e
         WHERE e.DepartmentID = d.DepartmentID
     ) AS MaxBaseSalary
-FROM Departments d;
+FROM Departments AS d;
 
 -- Solution 3: CTE
 WITH MaxSalary AS (
@@ -266,8 +266,8 @@ WITH MaxSalary AS (
 SELECT 
     d.DepartmentName,
     m.MaxBaseSalary
-FROM Departments d
-LEFT JOIN MaxSalary m ON m.DepartmentID = d.DepartmentID;
+FROM Departments AS d
+LEFT JOIN MaxSalary AS m ON m.DepartmentID = d.DepartmentID;
 
 
 -- ------------------------------------------------------------
@@ -280,8 +280,8 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS EmployeeName,
     CONCAT(m.FirstName, N' ', m.LastName) AS ManagerName
-FROM Employees e
-INNER JOIN Employees m ON m.EmployeeID = e.ManagerID;
+FROM Employees AS e
+INNER JOIN Employees AS m ON m.EmployeeID = e.ManagerID;
 
 -- Solution 2: Subquery
 SELECT 
@@ -289,10 +289,10 @@ SELECT
     CONCAT(e.FirstName, N' ', e.LastName) AS EmployeeName,
     (
         SELECT CONCAT(m.FirstName, N' ', m.LastName)
-        FROM Employees m
+        FROM Employees AS m
         WHERE m.EmployeeID = e.ManagerID
     ) AS ManagerName
-FROM Employees e
+FROM Employees AS e
 WHERE e.ManagerID IS NOT NULL;
 
 -- Solution 3: CTE
@@ -301,8 +301,8 @@ WITH EmployeeManagers AS (
         e.EmployeeID,
         CONCAT(e.FirstName, N' ', e.LastName) AS EmployeeName,
         CONCAT(m.FirstName, N' ', m.LastName) AS ManagerName
-    FROM Employees e
-    INNER JOIN Employees m ON m.EmployeeID = e.ManagerID
+    FROM Employees AS e
+    INNER JOIN Employees AS m ON m.EmployeeID = e.ManagerID
 )
 SELECT * FROM EmployeeManagers;
 
@@ -317,8 +317,8 @@ SELECT
     m.EmployeeID AS ManagerID,
     CONCAT(m.FirstName, N' ', m.LastName) AS ManagerName,
     COUNT(e.EmployeeID) AS TeamSize
-FROM Employees m
-INNER JOIN Employees e ON e.ManagerID = m.EmployeeID
+FROM Employees AS m
+INNER JOIN Employees AS e ON e.ManagerID = m.EmployeeID
 GROUP BY m.EmployeeID, m.FirstName, m.LastName;
 
 -- Solution 2: Subquery
@@ -327,12 +327,12 @@ SELECT
     CONCAT(m.FirstName, N' ', m.LastName) AS ManagerName,
     (
         SELECT COUNT(*)
-        FROM Employees e
+        FROM Employees AS e
         WHERE e.ManagerID = m.EmployeeID
     ) AS TeamSize
-FROM Employees m
+FROM Employees AS m
 WHERE EXISTS (
-    SELECT 1 FROM Employees e WHERE e.ManagerID = m.EmployeeID
+    SELECT 1 FROM Employees AS e WHERE e.ManagerID = m.EmployeeID
 );
 
 -- Solution 3: CTE
@@ -348,8 +348,8 @@ SELECT
     m.EmployeeID AS ManagerID,
     CONCAT(m.FirstName, N' ', m.LastName) AS ManagerName,
     tc.TeamSize
-FROM TeamCounts tc
-INNER JOIN Employees m ON m.EmployeeID = tc.ManagerID;
+FROM TeamCounts AS tc
+INNER JOIN Employees AS m ON m.EmployeeID = tc.ManagerID;
 
 
 -- ------------------------------------------------------------
@@ -363,7 +363,7 @@ SELECT
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     e.BaseSalary,
     e.BaseSalary * 12 AS AnnualSalary
-FROM Employees e;
+FROM Employees AS e;
 
 -- Solution 2: Subquery
 SELECT 
@@ -372,10 +372,10 @@ SELECT
     e.BaseSalary,
     (
         SELECT e2.BaseSalary * 12
-        FROM Employees e2
+        FROM Employees AS e2
         WHERE e2.EmployeeID = e.EmployeeID
     ) AS AnnualSalary
-FROM Employees e;
+FROM Employees AS e;
 
 -- Solution 3: CTE
 WITH SalaryCTE AS (
@@ -399,8 +399,8 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     SUM(l.DaysCount) AS ApprovedLeaveDays
-FROM Employees e
-INNER JOIN LeaveRequests l ON l.EmployeeID = e.EmployeeID
+FROM Employees AS e
+INNER JOIN LeaveRequests AS l ON l.EmployeeID = e.EmployeeID
 WHERE l.ApprovalStatus = N'Approved'
 GROUP BY e.EmployeeID, e.FirstName, e.LastName;
 
@@ -410,11 +410,11 @@ SELECT
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     (
         SELECT SUM(l.DaysCount)
-        FROM LeaveRequests l
+        FROM LeaveRequests AS l
         WHERE l.EmployeeID = e.EmployeeID
           AND l.ApprovalStatus = N'Approved'
     ) AS ApprovedLeaveDays
-FROM Employees e;
+FROM Employees AS e;
 
 -- Solution 3: CTE
 WITH ApprovedLeaves AS (
@@ -429,8 +429,8 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     ISNULL(al.ApprovedLeaveDays, 0) AS ApprovedLeaveDays
-FROM Employees e
-LEFT JOIN ApprovedLeaves al ON al.EmployeeID = e.EmployeeID;
+FROM Employees AS e
+LEFT JOIN ApprovedLeaves AS al ON al.EmployeeID = e.EmployeeID;
 
 
 -- ------------------------------------------------------------
@@ -443,8 +443,8 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     SUM(a.OvertimeHours) AS TotalOvertime
-FROM Employees e
-INNER JOIN Attendance a ON a.EmployeeID = e.EmployeeID
+FROM Employees AS e
+INNER JOIN Attendance AS a ON a.EmployeeID = e.EmployeeID
 GROUP BY e.EmployeeID, e.FirstName, e.LastName;
 
 -- Solution 2: Subquery
@@ -453,10 +453,10 @@ SELECT
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     (
         SELECT SUM(a.OvertimeHours)
-        FROM Attendance a
+        FROM Attendance AS a
         WHERE a.EmployeeID = e.EmployeeID
     ) AS TotalOvertime
-FROM Employees e;
+FROM Employees AS e;
 
 -- Solution 3: CTE
 WITH OvertimeSum AS (
@@ -470,8 +470,8 @@ SELECT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     ISNULL(o.TotalOvertime, 0) AS TotalOvertime
-FROM Employees e
-LEFT JOIN OvertimeSum o ON o.EmployeeID = e.EmployeeID;
+FROM Employees AS e
+LEFT JOIN OvertimeSum AS o ON o.EmployeeID = e.EmployeeID;
 
 
 -- ------------------------------------------------------------
@@ -483,18 +483,18 @@ LEFT JOIN OvertimeSum o ON o.EmployeeID = e.EmployeeID;
 SELECT 
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName
-FROM Employees e
-LEFT JOIN Attendance a ON a.EmployeeID = e.EmployeeID
+FROM Employees AS e
+LEFT JOIN Attendance AS a ON a.EmployeeID = e.EmployeeID
 WHERE a.AttendanceID IS NULL;
 
 -- Solution 2: Subquery (NOT EXISTS)
 SELECT 
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName
-FROM Employees e
+FROM Employees AS e
 WHERE NOT EXISTS (
     SELECT 1 
-    FROM Attendance a 
+    FROM Attendance AS a 
     WHERE a.EmployeeID = e.EmployeeID
 );
 
@@ -506,8 +506,8 @@ WITH EmployeesWithAttendance AS (
 SELECT 
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName
-FROM Employees e
-LEFT JOIN EmployeesWithAttendance x ON x.EmployeeID = e.EmployeeID
+FROM Employees AS e
+LEFT JOIN EmployeesWithAttendance AS x ON x.EmployeeID = e.EmployeeID
 WHERE x.EmployeeID IS NULL;
 
 
@@ -520,18 +520,18 @@ WHERE x.EmployeeID IS NULL;
 SELECT DISTINCT
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName
-FROM Employees e
-INNER JOIN LeaveRequests l ON l.EmployeeID = e.EmployeeID
+FROM Employees AS e
+INNER JOIN LeaveRequests AS l ON l.EmployeeID = e.EmployeeID
 WHERE l.ApprovalStatus = N'Rejected';
 
 -- Solution 2: Subquery (EXISTS)
 SELECT 
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName
-FROM Employees e
+FROM Employees AS e
 WHERE EXISTS (
     SELECT 1 
-    FROM LeaveRequests l 
+    FROM LeaveRequests AS l 
     WHERE l.EmployeeID = e.EmployeeID 
       AND l.ApprovalStatus = N'Rejected'
 );
@@ -545,8 +545,8 @@ WITH RejectedLeaves AS (
 SELECT 
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName
-FROM Employees e
-INNER JOIN RejectedLeaves r ON r.EmployeeID = e.EmployeeID;
+FROM Employees AS e
+INNER JOIN RejectedLeaves AS r ON r.EmployeeID = e.EmployeeID;
 
 
 -- ------------------------------------------------------------
@@ -560,11 +560,11 @@ SELECT
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     sp.PaymentDate,
     sp.NetSalary
-FROM Employees e
-INNER JOIN SalaryPayments sp ON sp.EmployeeID = e.EmployeeID
+FROM Employees AS e
+INNER JOIN SalaryPayments AS sp ON sp.EmployeeID = e.EmployeeID
 WHERE sp.PaymentDate = (
     SELECT MAX(sp2.PaymentDate)
-    FROM SalaryPayments sp2
+    FROM SalaryPayments AS sp2
     WHERE sp2.EmployeeID = e.EmployeeID
 );
 
@@ -574,16 +574,16 @@ SELECT
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     (
         SELECT MAX(sp2.PaymentDate)
-        FROM SalaryPayments sp2
+        FROM SalaryPayments AS sp2
         WHERE sp2.EmployeeID = e.EmployeeID
     ) AS LastPaymentDate,
     (
         SELECT TOP 1 sp3.NetSalary
-        FROM SalaryPayments sp3
+        FROM SalaryPayments AS sp3
         WHERE sp3.EmployeeID = e.EmployeeID
         ORDER BY sp3.PaymentDate DESC
     ) AS LastNetSalary
-FROM Employees e;
+FROM Employees AS e;
 
 -- Solution 3: CTE (ROW_NUMBER)
 WITH LastPayment AS (
@@ -593,12 +593,12 @@ WITH LastPayment AS (
             PARTITION BY sp.EmployeeID 
             ORDER BY sp.PaymentDate DESC
         ) AS rn
-    FROM SalaryPayments sp
+    FROM SalaryPayments AS sp
 )
 SELECT 
     e.EmployeeID,
     CONCAT(e.FirstName, N' ', e.LastName) AS FullName,
     lp.PaymentDate,
     lp.NetSalary
-FROM Employees e
-INNER JOIN LastPayment lp ON lp.EmployeeID = e.EmployeeID AND lp.rn = 1;
+FROM Employees AS e
+INNER JOIN LastPayment AS lp ON lp.EmployeeID = e.EmployeeID AND lp.rn = 1;
