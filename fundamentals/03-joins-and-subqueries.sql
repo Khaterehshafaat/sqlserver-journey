@@ -1,5 +1,4 @@
 -- ============================================================
--- Course: SQL Server Querying
 -- Module 03: JOINS & Subqueries
 -- Description: CROSS, INNER, OUTER & SELF JOINs, Scalar, Multi-valued & Correlated Subqueries, EXISTS
 -- ============================================================
@@ -128,4 +127,32 @@ SELECT
         WHERE O.CustomerID = C.CustomerID
     ) AS NewestOrderID
 FROM Customers AS C;
+GO
+
+
+
+
+-- ------------------------------------------------------------
+-- All Customers Who Placed At Least One Order
+-- Comparing INNER JOIN (with DISTINCT) vs. EXISTS
+-- ------------------------------------------------------------
+
+-- Method 1: Using INNER JOIN & DISTINCT
+SELECT DISTINCT 
+    C.CustomerID, 
+    C.CompanyName
+FROM Customers AS C 
+INNER JOIN Orders AS O ON C.CustomerID = O.CustomerID;
+GO
+
+-- Method 2: Using EXISTS in WHERE clause
+SELECT 
+    C.CustomerID, 
+    C.CompanyName
+FROM Customers AS C 
+WHERE EXISTS (
+    SELECT 1 
+    FROM Orders AS O 
+    WHERE O.CustomerID = C.CustomerID
+);
 GO
