@@ -76,7 +76,6 @@ GO
 
 
 
-
 -- ------------------------------------------------------------
 -- Finding the Newest Order of Each Customer (GROUP BY vs. Correlated Subquery)
 -- ------------------------------------------------------------
@@ -85,16 +84,16 @@ GO
 SELECT 
     CustomerID, 
     MAX(OrderID) AS NewestOrderID
-FROM dbo.Orders
+FROM Orders
 GROUP BY CustomerID;
 GO
 
--- Method 2: Global Max OrderID (Scalar Subquery - Note: Returns only 1 global max, not per customer)
+-- Method 2: Global Max OrderID (Scalar Subquery)
 SELECT 
     CustomerID, 
     OrderID
-FROM dbo.Orders
-WHERE OrderID = (SELECT MAX(OrderID) FROM dbo.Orders);
+FROM Orders
+WHERE OrderID = (SELECT MAX(OrderID) FROM Orders);
 GO
 
 -- Method 3: Correlated Subquery in SELECT (Using DISTINCT)
@@ -102,10 +101,10 @@ SELECT DISTINCT
     O.CustomerID,
     (
         SELECT MAX(O1.OrderID) 
-        FROM dbo.Orders AS O1 
+        FROM Orders AS O1 
         WHERE O1.CustomerID = O.CustomerID
     ) AS NewestOrderID
-FROM dbo.Orders AS O;
+FROM Orders AS O;
 GO
 
 -- Method 4: Correlated Subquery in SELECT (Using GROUP BY)
@@ -113,20 +112,20 @@ SELECT
     O.CustomerID,
     (
         SELECT MAX(O1.OrderID) 
-        FROM dbo.Orders AS O1 
+        FROM Orders AS O1 
         WHERE O1.CustomerID = O.CustomerID
     ) AS NewestOrderID
-FROM dbo.Orders AS O
+FROM Orders AS O
 GROUP BY O.CustomerID;
 GO
 
--- Method 5: Correlated Subquery on Customers table (Includes Customers with 0 Orders)
+-- Method 5: Correlated Subquery on Customers table
 SELECT
     C.CustomerID,
     (
         SELECT MAX(O.OrderID) 
-        FROM dbo.Orders AS O 
+        FROM Orders AS O 
         WHERE O.CustomerID = C.CustomerID
     ) AS NewestOrderID
-FROM dbo.Customers AS C;
+FROM Customers AS C;
 GO
