@@ -84,3 +84,66 @@ FROM (
 ) AS SB 
 WHERE SB.ORDERNUM > 10;
 GO
+
+
+
+
+
+
+-- ============================================================
+-- Module 05: Derived Tables & Class Exercises
+-- Description: Finding Customers who ordered more than 5 product 
+--              items in a single order invoice using JOINs, 
+--              Subqueries, and Derived Tables
+-- ============================================================
+
+USE TehranDataDB;
+GO
+
+-- ------------------------------------------------------------
+-- Class Exercise: Identify Customers with > 5 Item Types per Invoice
+-- ------------------------------------------------------------
+
+-- Method 1: Using Multi-table INNER JOINs with GROUP BY & HAVING
+SELECT 
+    C.CustomerID, 
+    O.OrderID,
+    COUNT(OD.OrderID) AS NUMORDER
+FROM Customers AS C 
+INNER JOIN Orders AS O ON C.CustomerID = O.CustomerID
+INNER JOIN OrderDetails AS OD ON O.OrderID = OD.OrderID
+GROUP BY C.CustomerID, O.OrderID
+HAVING COUNT(OD.OrderID) > 5;
+GO
+
+-- Method 2: Using a Derived Table with Correlated Subquery
+SELECT DISTINCT 
+    DD.CustomerID,
+    DD.NUM
+FROM (
+    SELECT
+        O.CustomerID, 
+        (
+            SELECT COUNT(OD.OrderID) 
+            FROM OrderDetails AS OD 
+            WHERE OD.OrderID = O.OrderID
+        ) AS NUM
+    FROM Orders AS O
+) AS DD
+WHERE DD.NUM IS NOT NULL 
+  AND DD.NUM > 5;
+GO
+
+-- Method 3: Using Subquery in SELECT with GROUP BY on OrderDetails
+SELECT DISTINCT 
+    (
+        SELECT O.CustomerID 
+        FROM Orders AS O 
+        WHERE O.OrderID = OD.OrderID
+    ) AS CUSTOMERS,
+    COUNT(OD.OrderID) AS NUM
+FROM OrderDetails AS OD
+GROUP BY OD.OrderID
+HAVING COUNT(OD.OrderID) > 5;
+GO
+
