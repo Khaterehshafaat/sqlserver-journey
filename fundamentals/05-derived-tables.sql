@@ -147,3 +147,20 @@ GROUP BY OD.OrderID
 HAVING COUNT(OD.OrderID) > 5;
 GO
 
+
+
+-- ------------------------------------------------------------
+-- Count of Distinct Customers Per Order Year Using a Derived Table
+-- ------------------------------------------------------------
+
+SELECT 
+    OO.OrderYear, 
+    COUNT(DISTINCT OO.CustomerID) AS CustomerCount
+FROM (
+    SELECT 
+        YEAR(O.OrderDate) AS OrderYear, 
+        O.CustomerID
+    FROM Orders AS O
+) AS OO
+GROUP BY OO.OrderYear;
+GO
