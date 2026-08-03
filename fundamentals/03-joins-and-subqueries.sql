@@ -156,3 +156,30 @@ WHERE EXISTS (
     WHERE O.CustomerID = C.CustomerID
 );
 GO
+
+
+-- ------------------------------------------------------------
+-- All Customers Who Have NOT Placed Any Orders
+-- Comparing NOT EXISTS vs. LEFT JOIN with IS NULL
+-- ------------------------------------------------------------
+
+-- Method 1: Using NOT EXISTS
+SELECT 
+    C.CustomerID, 
+    C.CompanyName
+FROM Customers AS C 
+WHERE NOT EXISTS (
+    SELECT 1 
+    FROM Orders AS O 
+    WHERE O.CustomerID = C.CustomerID
+);
+GO
+
+-- Method 2: Using LEFT JOIN & IS NULL
+SELECT 
+    C.CustomerID, 
+    C.CompanyName
+FROM Customers AS C 
+LEFT JOIN Orders AS O ON C.CustomerID = O.CustomerID
+WHERE O.OrderID IS NULL;
+GO
