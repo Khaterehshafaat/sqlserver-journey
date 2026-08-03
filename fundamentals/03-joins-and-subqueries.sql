@@ -183,3 +183,46 @@ FROM Customers AS C
 LEFT JOIN Orders AS O ON C.CustomerID = O.CustomerID
 WHERE O.OrderID IS NULL;
 GO
+
+
+
+
+-- ------------------------------------------------------------
+-- Class Exercise: Employees who processed orders for Customer #18
+-- Comparing JOIN (with DISTINCT), IN Subquery, and EXISTS
+-- ------------------------------------------------------------
+
+-- Method 1: Using INNER JOIN & DISTINCT
+SELECT DISTINCT 
+    E.FirstName, 
+    E.LastName, 
+    O.CustomerID
+FROM Employees AS E 
+INNER JOIN Orders AS O ON E.EmployeeID = O.EmployeeID
+WHERE O.CustomerID = 18;
+GO
+
+-- Method 2: Using Multi-Valued Subquery with IN
+SELECT 
+    E.FirstName, 
+    E.LastName
+FROM Employees AS E 
+WHERE E.EmployeeID IN (
+    SELECT EmployeeID 
+    FROM Orders 
+    WHERE CustomerID = 18
+);
+GO
+
+-- Method 3: Using Correlated Subquery with EXISTS
+SELECT 
+    E.FirstName, 
+    E.LastName
+FROM Employees AS E 
+WHERE EXISTS (
+    SELECT 1 
+    FROM Orders AS O 
+    WHERE E.EmployeeID = O.EmployeeID 
+      AND O.CustomerID = 18
+);
+GO
