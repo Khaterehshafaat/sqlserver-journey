@@ -59,3 +59,24 @@ CT2 AS (
 SELECT DISTINCT
     T.CustomerID
 FROM CT2 AS T;
+
+
+
+
+
+-- SQL Server | Recursive CTE to Generate Numbers from 1 to 100
+
+;WITH CTE AS
+(
+    -- Anchor Member
+    SELECT 1 AS NUM
+
+    UNION ALL
+
+    -- Recursive Member
+    SELECT NUM + 1
+    FROM CTE
+    WHERE NUM < 100
+)
+SELECT *
+FROM CTE;
