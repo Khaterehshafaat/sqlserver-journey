@@ -80,3 +80,34 @@ FROM CT2 AS T;
 )
 SELECT *
 FROM CTE;
+
+
+
+
+-- SQL Server | Recursive CTE to Display All Subordinates of Employee 5
+
+;WITH EMPLOYEE_CTE AS
+(
+    -- Anchor Member: Start with Employee 5
+    SELECT
+        EmployeeID,
+        mgrid,
+        FirstName,
+        LastName
+    FROM Employees
+    WHERE EmployeeID = 5
+
+    UNION ALL
+
+    -- Recursive Member: Find employees who report to the current employee
+    SELECT
+        E.EmployeeID,
+        E.mgrid,
+        E.FirstName,
+        E.LastName
+    FROM EMPLOYEE_CTE AS EMP_CTE
+    INNER JOIN Employees AS E
+        ON E.mgrid = EMP_CTE.EmployeeID
+)
+SELECT *
+FROM EMPLOYEE_CTE;
