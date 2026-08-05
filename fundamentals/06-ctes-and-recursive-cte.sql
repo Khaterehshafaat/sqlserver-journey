@@ -32,3 +32,30 @@ SELECT
     ISNULL(LAG(NUM) OVER (ORDER BY ORDERYEAR), 0) AS previousnum,
     NUM - ISNULL(LAG(NUM) OVER (ORDER BY ORDERYEAR), 0) AS growth
 FROM CUST_CP;
+
+
+
+
+
+-- SQL Server | Using CTEs and Correlated Subqueries to Find Customers with Orders Containing More Than 5 Items
+
+WITH CT1 AS (
+    SELECT 
+        O.CustomerID,
+        (
+            SELECT COUNT(OD.OrderID)
+            FROM OrderDetails AS OD
+            WHERE OD.OrderID = O.OrderID
+        ) AS NUM
+    FROM Orders AS O
+),
+CT2 AS (
+    SELECT 
+        C.CustomerID,
+        C.NUM
+    FROM CT1 AS C
+    WHERE C.NUM > 5
+)
+SELECT DISTINCT
+    T.CustomerID
+FROM CT2 AS T;
