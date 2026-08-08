@@ -1,0 +1,19 @@
+-- ================================================
+-- Module 07: Views
+-- ================================================
+-- View: List of companies with their order count
+
+CREATE VIEW COMPANY_LIST AS
+SELECT
+    C.CompanyName,
+    C.City,
+    (SELECT COUNT(O.OrderID) 
+     FROM Orders AS O 
+     WHERE O.CustomerID = C.CustomerID) AS NUM
+FROM Customers AS C;
+GO
+
+-- Usage example: get companies based in Tehran
+SELECT * 
+FROM COMPANY_LIST 
+WHERE City = N'تهران';
