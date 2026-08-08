@@ -33,3 +33,32 @@ GO
 SELECT * 
 FROM VW_YEARORDERS 
 WHERE ORDERYEAR = 2014;
+
+
+
+
+
+-- ================================================
+-- View in View example
+-- ================================================
+
+-- View 1: Order count per employee
+CREATE VIEW VW_EMPLOYEE_ORDER_COUNT AS
+SELECT 
+    EmployeeID, 
+    COUNT(OrderID) AS NUM
+FROM Orders
+GROUP BY EmployeeID;
+GO
+
+-- View 2: Employees with more than 100 orders (built on top of View 1)
+CREATE VIEW VW_RANGE_EMPLOYEES_ORDERCOUNT AS
+SELECT * 
+FROM VW_EMPLOYEE_ORDER_COUNT
+WHERE NUM > 100;
+GO
+
+-- Usage: filter further on the second view
+SELECT * 
+FROM VW_RANGE_EMPLOYEES_ORDERCOUNT 
+WHERE NUM < 120;
