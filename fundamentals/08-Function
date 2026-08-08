@@ -1,1 +1,95 @@
 
+-- ================================================
+-- Module 08: Functions
+-- ================================================
+
+-- ------------------------------------------------
+-- Scalar Function 1: Get initials
+-- ------------------------------------------------
+CREATE FUNCTION dbo.INITIALS
+    (@FIRSTNAME NVARCHAR(50),
+     @LASTNAME NVARCHAR(50))
+    RETURNS NCHAR(3)
+AS 
+BEGIN 
+    RETURN LEFT(@FIRSTNAME, 1) + '.' + LEFT(@LASTNAME, 1)
+END
+GO
+
+-- Usage: simple call
+SELECT dbo.INITIALS(N'AMIR', N'TAQALVI');
+GO
+
+-- Usage: apply to a whole table
+SELECT
+    FirstName, 
+    LastName, 
+    dbo.INITIALS(FirstName, LastName) AS ABBR
+FROM Employees;
+GO
+
+-- ------------------------------------------------
+-- Scalar Function 2: Get age from birthdate
+-- ------------------------------------------------
+CREATE FUNCTION dbo.GETAGE
+    (@BIRTHDATE DATETIME)
+    RETURNS TINYINT 
+AS
+BEGIN 
+    RETURN DATEDIFF(YEAR, @BIRTHDATE, GETDATE())
+END
+GO
+
+-- Usage
+SELECT 
+    EmployeeID, 
+    dbo.GETAGE(e.BirthDate) AS AGE 
+FROM Employees AS e;
+GO
+
+-- ------------------------------------------------
+-- Inline Table-Valued Function (Inline TVF)
+-- Returns a full table based on a parameter
+-- ------------------------------------------------
+CREATE FUNCTION dbo.Customer_Info (@City NVARCHAR(50))
+RETURNS TABLE
+AS
+RETURN
+    SELECT 
+        C.CompanyName, 
+        C.City, 
+        O.OrderID, 
+        O.OrderDate
+    FROM Customers AS C 
+    JOIN Orders AS O ON C.CustomerID = O.CustomerID
+    WHERE C.City = @City;
+GO
+
+-- Usage
+SELECT * FROM dbo.Customer_Info(N'تهران');
+GO
+
+-- You can join the result with other tables
+SELECT * 
+FROM dbo.Customer_Info(N'تهران') AS F 
+JOIN OrderDetails AS OD ON F.OrderID = OD.OrderID;
+GO
+
+-- ------------------------------------------------
+-- Inline TVF: Top N orders from a specific customer
+-- ------------------------------------------------
+CREATE FUNCTION dbo.Top_Orders (@CUST_ID INT, @NUM INT)
+RETURNS TABLE
+AS 
+RETURN 
+    SELECT TOP (@NUM) 
+        O.OrderID, 
+        O.CustomerID, 
+        O.OrderDate 
+    FROM Orders AS O 
+    WHERE O.CustomerID = @CUST_ID 
+    ORDER BY O.OrderDate DESC;
+GO
+
+-- Usage: top 3 orders for customer ID 5
+SELECT * FROM dbo.Top_Orders(5, 3);
