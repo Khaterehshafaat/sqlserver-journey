@@ -17,3 +17,19 @@ GO
 SELECT * 
 FROM COMPANY_LIST 
 WHERE City = N'تهران';
+
+
+
+-- View: Order count grouped by year
+CREATE VIEW YEARORDERS AS
+SELECT
+    YEAR(O.OrderDate) AS ORDERYEAR,
+    COUNT(O.OrderID) AS NUM
+FROM Orders AS O
+GROUP BY YEAR(O.OrderDate);
+GO
+
+-- Usage example: orders in year 2014
+SELECT * 
+FROM YEARORDERS 
+WHERE ORDERYEAR = 2014;
