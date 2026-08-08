@@ -3,7 +3,7 @@
 -- ================================================
 -- View: List of companies with their order count
 
-CREATE VIEW COMPANY_LIST AS
+CREATE VIEW VW_COMPANY_LIST AS
 SELECT
     C.CompanyName,
     C.City,
@@ -15,13 +15,13 @@ GO
 
 -- Usage example: get companies based in Tehran
 SELECT * 
-FROM COMPANY_LIST 
+FROM VW_COMPANY_LIST 
 WHERE City = N'تهران';
 
 
 
 -- View: Order count grouped by year
-CREATE VIEW YEARORDERS AS
+CREATE VIEW VW_YEARORDERS AS
 SELECT
     YEAR(O.OrderDate) AS ORDERYEAR,
     COUNT(O.OrderID) AS NUM
@@ -31,5 +31,5 @@ GO
 
 -- Usage example: orders in year 2014
 SELECT * 
-FROM YEARORDERS 
+FROM VW_YEARORDERS 
 WHERE ORDERYEAR = 2014;
