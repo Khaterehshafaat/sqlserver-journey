@@ -1,1 +1,74 @@
 
+-- ================================================
+-- Module 09: APPLY (CROSS APPLY / OUTER APPLY)
+-- ================================================
+
+-- ------------------------------------------------
+-- CROSS APPLY: Top 3 orders of customers in Tehran
+-- (only customers WITH orders are returned)
+-- ------------------------------------------------
+SELECT
+    C.CustomerID, 
+    TMP.OrderDate, 
+    TMP.OrderID
+FROM Customers AS C 
+CROSS APPLY 
+(
+    SELECT TOP (3) 
+        O.OrderID, 
+        O.OrderDate
+    FROM Orders AS O 
+    WHERE O.CustomerID = C.CustomerID
+    ORDER BY O.OrderDate DESC
+) AS TMP 
+WHERE C.City = N'تهران';
+GO
+
+-- ------------------------------------------------
+-- OUTER APPLY: same as above, but keeps customers
+-- even if they have NO orders (like a LEFT JOIN)
+-- ------------------------------------------------
+SELECT
+    C.CustomerID, 
+    TMP.OrderDate, 
+    TMP.OrderID
+FROM Customers AS C 
+OUTER APPLY 
+(
+    SELECT TOP (3) 
+        O.OrderID, 
+        O.OrderDate
+    FROM Orders AS O 
+    WHERE O.CustomerID = C.CustomerID
+    ORDER BY O.OrderDate DESC
+) AS TMP;
+GO
+
+-- ------------------------------------------------
+-- APPLY + Table-Valued Function (TVF)
+-- Function: get top N orders for a given customer
+-- ------------------------------------------------
+DROP FUNCTION IF EXISTS dbo.TOP_ORDERS;
+GO
+
+CREATE FUNCTION dbo.TOP_ORDERS(@CustID AS INT, @n AS TINYINT)
+RETURNS TABLE 
+AS
+RETURN
+    SELECT TOP (@n) 
+        OrderID, 
+        CustomerID, 
+        OrderDate 
+    FROM Orders 
+    WHERE CustomerID = @CustID
+    ORDER BY OrderDate DESC, OrderID DESC;
+GO
+
+-- Usage: OUTER APPLY with the TVF
+-- (returns top 5 orders per customer, keeps customers with 0 orders)
+SELECT 
+    C.CustomerID, 
+    T.CustomerID AS TVF_CustomerID,
+    T.OrderDate 
+FROM Customers AS C 
+OUTER APPLY dbo.TOP_ORDERS(C.CustomerID, 5) AS T;
