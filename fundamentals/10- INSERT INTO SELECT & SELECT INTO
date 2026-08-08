@@ -1,0 +1,153 @@
+-- ================================================
+-- Module 10: INSERT INTO SELECT & SELECT INTO
+-- Practice exercises (my own version)
+-- ================================================
+
+USE LibraryDB;
+GO
+
+-- ------------------------------------------------
+-- Part 1: INSERT INTO ... SELECT
+-- Copy specific columns from a query into an existing table
+-- ------------------------------------------------
+
+DROP TABLE IF EXISTS dbo.Member_Loans_Summary;
+GO
+
+CREATE TABLE dbo.Member_Loans_Summary
+(
+    MemberID INT,
+    LibrarianLastName NVARCHAR(50),
+    City NVARCHAR(20)
+);
+GO
+
+-- Members from Tehran and the librarians who processed their loans
+SELECT
+    DISTINCT M.MemberID, M.City, L.LastName
+FROM dbo.Members AS M
+JOIN dbo.Loans AS Ln
+    ON Ln.MemberID = M.MemberID
+JOIN dbo.Librarians AS L
+    ON L.LibrarianID = Ln.LibrarianID
+WHERE M.City = N'تهران';
+GO
+
+-- Same idea using CROSS APPLY instead of JOIN
+SELECT
+    M.MemberID, M.City, Tmp.LastName
+FROM dbo.Members AS M
+CROSS APPLY
+    (SELECT L.LastName 
+     FROM dbo.Librarians AS L
+     WHERE EXISTS (
+         SELECT 1 FROM dbo.Loans AS Ln
+         WHERE Ln.LibrarianID = L.LibrarianID
+         AND Ln.MemberID = M.MemberID
+     )) AS Tmp 
+WHERE M.City = N'تهران' 
+ORDER BY M.MemberID;
+GO
+
+-- Now insert the result into the table we created
+INSERT INTO dbo.Member_Loans_Summary
+SELECT
+    M.MemberID, Tmp.LastName, M.City
+FROM dbo.Members AS M
+CROSS APPLY
+    (SELECT L.LastName 
+     FROM dbo.Librarians AS L
+     WHERE EXISTS (
+         SELECT 1 FROM dbo.Loans AS Ln
+         WHERE Ln.LibrarianID = L.LibrarianID
+         AND Ln.MemberID = M.MemberID
+         AND M.City = N'تهران'
+     )) AS Tmp
+ORDER BY M.MemberID;
+GO
+
+SELECT * FROM dbo.Member_Loans_Summary
+ORDER BY MemberID;
+GO
+
+
+-- ================================================
+-- Part 2: SELECT INTO (make-table query)
+-- Target table must NOT exist beforehand.
+-- What transfers: table structure + rows.
+-- What does NOT transfer: permissions, constraints, indexes, triggers.
+-- ================================================
+
+DROP TABLE IF EXISTS dbo.Loans_Copy1, dbo.Loans_Copy2;
+GO
+
+-- Full copy of a table (all columns)
+SELECT * INTO dbo.Loans_Copy1
+FROM dbo.Loans;
+GO
+
+SELECT * FROM dbo.Loans_Copy1;
+GO
+
+-- Partial copy: only some columns, with a filter
+SELECT
+    LoanID, MemberID 
+INTO dbo.Loans_Copy2
+FROM dbo.Loans
+WHERE LoanID > 500;
+GO
+
+SELECT * FROM dbo.Loans_Copy2;
+GO
+
+
+-- ------------------------------------------------
+-- Practice: members with active loans, 
+-- including MemberID, City, LoanID
+-- ------------------------------------------------
+
+DROP TABLE IF EXISTS dbo.Member_Loan_Report;
+GO
+
+-- Version 1: via JOIN
+SELECT M.MemberID, M.City 
+INTO dbo.Member_Loan_Report 
+FROM dbo.Members AS M
+JOIN dbo.Loans AS Ln
+    ON M.MemberID = Ln.MemberID;
+GO
+
+DROP TABLE IF EXISTS dbo.Member_Loan_Report;
+GO
+
+-- Version 2: via correlated subquery
+SELECT
+    Ln.MemberID, Ln.LoanID,
+    (SELECT M.City FROM dbo.Members AS M
+     WHERE M.MemberID = Ln.MemberID) AS City
+INTO dbo.Member_Loan_Report 
+FROM dbo.Loans AS Ln;
+GO
+
+-- NOT allowed: SELECT INTO directly wrapping another SELECT without a derived table
+-- SELECT * INTO dbo.Member_Loan_Report
+-- FROM SELECT
+--     M.MemberID, M.City, Ln.LoanID
+-- FROM dbo.Members AS M
+--     JOIN dbo.Loans AS Ln
+--         ON M.MemberID = Ln.MemberID;
+
+DROP TABLE IF EXISTS dbo.Member_Loan_Report;
+GO
+
+-- Allowed version: wrap the SELECT as a derived table with an alias
+SELECT * INTO dbo.Member_Loan_Report
+FROM (SELECT
+        M.MemberID, M.City, Ln.LoanID
+      FROM dbo.Members AS M
+      JOIN dbo.Loans AS Ln
+        ON M.MemberID = Ln.MemberID) AS Tmp;
+GO
+
+SELECT * FROM dbo.Member_Loan_Report;
+GO
