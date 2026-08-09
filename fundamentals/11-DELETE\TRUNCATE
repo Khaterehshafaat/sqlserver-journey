@@ -98,3 +98,83 @@ DELETE FROM dbo.EmployeeAge
 WHERE DATEDIFF(YEAR, BIRTHDATE, GETDATE()) > 50;
 
 SELECT * FROM EmployeeAge;
+
+
+
+
+
+
+-- ============================================================
+-- TRUNCATE — does NOT accept any condition (no WHERE clause)
+-- ============================================================
+
+-- 1. Basic example
+DROP TABLE IF EXISTS dbo.TRUNCATE_Tbl;
+
+CREATE TABLE dbo.TRUNCATE_Tbl
+(
+    ID   INT IDENTITY,
+    Code VARCHAR(10),
+    City NVARCHAR(20)
+);
+GO
+
+INSERT INTO TRUNCATE_Tbl
+VALUES
+    ('CD-01', N'تهران'),  ('CD-02', N'تهران'),  ('CD-03', N'تهران'),
+    ('CD-04', N'اصفهان'), ('CD-05', N'مشهد'),   ('CD-06', N'تبریز'),
+    ('CD-07', N'شیراز'),  ('CD-08', N'تبریز'),  ('CD-09', N'مشهد');
+GO
+
+SELECT * FROM TRUNCATE_Tbl;
+
+
+-- ============================================================
+-- 2. TRUNCATE and Foreign Keys (Parent / Child)
+-- ============================================================
+DROP TABLE IF EXISTS dbo.TRUNCATE_PT, dbo.TRUNCATE_CT;
+GO
+
+-- Parent table
+CREATE TABLE dbo.TRUNCATE_PT
+(
+    ID   INT IDENTITY PRIMARY KEY,
+    Code VARCHAR(10),
+    City NVARCHAR(20)
+);
+GO
+
+INSERT INTO dbo.TRUNCATE_PT
+VALUES
+    ('CD-01', N'تهران'),  ('CD-02', N'تهران'),  ('CD-03', N'تهران'),
+    ('CD-04', N'اصفهان'), ('CD-05', N'مشهد'),   ('CD-06', N'تبریز'),
+    ('CD-07', N'شیراز'),  ('CD-08', N'تبریز'),  ('CD-09', N'مشهد');
+GO
+
+-- Child table (references parent)
+CREATE TABLE dbo.TRUNCATE_CT
+(
+    ID      INT REFERENCES dbo.TRUNCATE_PT(ID),
+    OrderID INT
+);
+GO
+
+INSERT INTO dbo.TRUNCATE_CT
+VALUES
+    (1,1001),(1,1002),(1,1003), (2,1004),(2,1005),(2,1006),
+    (3,1007),(3,1008),(3,1009), (4,1010),(4,1011),(4,1012),
+    (5,1013),(6,1014),(7,1015), (8,1016),(9,1017),(9,1018);
+GO
+
+-- CANNOT truncate the parent while the FK relationship exists
+TRUNCATE TABLE dbo.TRUNCATE_PT;
+
+-- You CAN truncate the child table
+TRUNCATE TABLE dbo.TRUNCATE_CT;
+GO
+
+-- Even after truncating the child (رفتن child خالی شد),
+-- TRUNCATE on the parent is STILL not allowed —
+-- SQL Server checks for the existence of the FK constraint itself,
+-- not whether matching rows currently exist.
+TRUNCATE TABLE dbo.TRUNCATE_PT;
