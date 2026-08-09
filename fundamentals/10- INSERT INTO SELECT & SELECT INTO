@@ -3,9 +3,29 @@
 -- Practice exercises (my own version)
 -- ================================================
 
-USE LibraryDB;
-GO
+-- INSERT
+-- Adds a single new row to a table.
+INSERT INTO table_name (column1, column2, column3)
+VALUES (value1, value2, value3);
 
+-- INSERT INTO ... VALUES
+-- Explicitly maps values to columns when inserting data.
+INSERT INTO table_name (column1, column2)
+VALUES (value1, value2);
+
+-- INSERT INTO ... SELECT
+-- Inserts rows into a table using data queried from another table.
+INSERT INTO table_name (column1, column2)
+SELECT columnA, columnB
+FROM other_table
+WHERE condition;
+
+-- SELECT INTO
+-- Creates a NEW table and copies data into it from an existing table.
+SELECT column1, column2
+INTO new_table
+FROM existing_table
+WHERE condition;
 -- ------------------------------------------------
 -- Part 1: INSERT INTO ... SELECT
 -- Copy specific columns from a query into an existing table
