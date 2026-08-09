@@ -1,0 +1,100 @@
+
+-- ============================================================
+-- 1. SETUP: Parent Table
+-- ============================================================
+DROP TABLE IF EXISTS dbo.DELETE_ParentTbl;
+
+CREATE TABLE dbo.DELETE_ParentTbl (
+    ID   INT IDENTITY PRIMARY KEY,
+    CODE VARCHAR(10),
+    CITY NVARCHAR(20)
+);
+
+INSERT INTO dbo.DELETE_ParentTbl VALUES
+    ('CD-01', N'تهران'),  ('CD-02', N'تهران'),  ('CD-03', N'تهران'),
+    ('CD-04', N'اصفهان'), ('CD-05', N'مشهد'),   ('CD-06', N'تبریز'),
+    ('CD-07', N'شیراز'),  ('CD-08', N'تبریز'),  ('CD-09', N'مشهد'),
+    ('CD-10', N'رشت'),    ('CD-11', N'رشت'),    ('CD-12', N'رشت');
+
+-- Simple delete: remove all rows where CITY = رشت
+DELETE FROM DELETE_ParentTbl WHERE CITY = N'رشت';
+
+SELECT * FROM DELETE_ParentTbl;
+
+-- ============================================================
+-- 2. SETUP: Child Table (Foreign Key to Parent)
+-- ============================================================
+CREATE TABLE dbo.DELETE_ChildTbl (
+    ID      INT REFERENCES DELETE_ParentTbl(ID),
+    ORDERID INT
+);
+
+INSERT INTO dbo.DELETE_ChildTbl VALUES
+    (1,1001),(1,1002),(1,1003), (2,1004),(2,1005),(2,1006),
+    (3,1007),(3,1008),(3,1009), (4,1010),(4,1011),(4,1012),
+    (5,1013),(6,1014),(7,1015), (8,1016),(9,1017),(9,1018);
+
+SELECT * FROM DELETE_ParentTbl;
+SELECT * FROM DELETE_ChildTbl;
+
+-- ============================================================
+-- 3. FOREIGN KEY RESTRICTION
+-- ============================================================
+-- This FAILS: cannot delete a parent row that is referenced
+-- by a child row (foreign key constraint violation)
+DELETE FROM DELETE_ParentTbl WHERE CITY = N'مشهد';
+
+-- View constraints defined on the child table
+SP_HELPCONSTRAINT DELETE_ChildTbl;
+
+-- ============================================================
+-- 4. DELETE USING JOIN
+-- ============================================================
+-- Preview: which child rows belong to parents in تبریز
+SELECT C.ID, C.ORDERID, P.CITY
+FROM DELETE_ChildTbl AS C
+JOIN DELETE_ParentTbl AS P
+    ON C.ID = P.ID
+WHERE P.CITY = N'تبریز';
+
+-- Now delete those child records.
+-- With a JOIN, you must specify WHICH table to delete from.
+DELETE C          -- or: DELETE FROM C
+FROM DELETE_ChildTbl AS C
+JOIN DELETE_ParentTbl AS P
+    ON C.ID = P.ID
+WHERE P.CITY = N'تبریز';
+
+-- ============================================================
+-- 5. DELETE USING EXISTS (no JOIN, no alias on target table)
+-- ============================================================
+-- Note: you still cannot delete from the parent table this way
+DELETE FROM DELETE_ChildTbl        -- cannot use an alias here
+WHERE EXISTS (
+    SELECT 1
+    FROM DELETE_ParentTbl AS P
+    WHERE P.CITY = N'تبریز'
+      AND P.ID = DELETE_ChildTbl.ID
+);
+
+-- ============================================================
+-- 6. SELECT INTO + DELETE (Employee Age Example)
+-- ============================================================
+-- Goal: copy Employees into a new table, then remove anyone over 50
+
+DROP TABLE IF EXISTS dbo.EmployeeAge;
+
+SELECT *
+INTO dbo.EmployeeAge
+FROM Employees;
+
+-- Preview employees older than 50
+SELECT *
+FROM dbo.EmployeeAge
+WHERE DATEDIFF(YEAR, BIRTHDATE, GETDATE()) > 50;
+
+-- Delete employees older than 50
+DELETE FROM dbo.EmployeeAge
+WHERE DATEDIFF(YEAR, BIRTHDATE, GETDATE()) > 50;
+
+SELECT * FROM EmployeeAge;
