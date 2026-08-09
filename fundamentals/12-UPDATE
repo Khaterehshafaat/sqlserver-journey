@@ -1,6 +1,4 @@
-USE TehranDataDB;
-GO
-
+-----UPDATE
 /*
 UPDATE <table_name>
     SET column1 = value1,
