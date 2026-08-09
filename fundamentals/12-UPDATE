@@ -1,0 +1,170 @@
+USE TehranDataDB;
+GO
+
+/*
+UPDATE <table_name>
+    SET column1 = value1,
+        column2 = value2, ...
+WHERE condition;
+*/
+
+-- ============================================================
+-- 1. Basic UPDATE examples
+-- ============================================================
+
+DROP TABLE IF EXISTS dbo.Customers1;
+GO
+
+SELECT *
+INTO dbo.Customers1
+FROM dbo.Customers;
+GO
+
+SELECT * FROM dbo.Customers1;
+GO
+
+-- Append a character to every row
+UPDATE dbo.Customers1
+SET CompanyName = CompanyName + '*';
+GO
+
+SELECT * FROM dbo.Customers1;
+GO
+
+-- Remove the character using REPLACE
+UPDATE dbo.Customers1
+SET CompanyName = REPLACE(CompanyName, '*', '');
+GO
+
+SELECT * FROM dbo.Customers1;
+GO
+
+-- Conditional update (WHERE clause)
+UPDATE dbo.Customers1
+SET Region = N'مرکزی'
+WHERE Region = N'مرکز';
+GO
+
+SELECT * FROM dbo.Customers1;
+GO
+
+-- An UPDATE with no WHERE clause updates every single record in the table
+UPDATE dbo.Customers1
+SET City   = N'فاقد شهر',
+    Region = N'فاقد شهر';
+GO
+
+SELECT * FROM dbo.Customers1;
+GO
+
+--------------------------------------------------------------------
+-- 2. UPDATE with JOIN
+--------------------------------------------------------------------
+
+-- Preview the join first
+SELECT *
+FROM dbo.Customers1 AS C
+JOIN dbo.Orders AS O
+    ON C.CustomerID = O.CustomerID;
+GO
+
+-- Perform the update — specify the alias right after UPDATE
+UPDATE C
+SET CompanyName = CompanyName + '+'
+FROM dbo.Customers1 AS C   -- refer to the alias here, not the table name
+JOIN dbo.Orders AS O
+    ON C.CustomerID = O.CustomerID;
+GO
+
+SELECT * FROM dbo.Customers1;
+GO
+
+/*
+Class exercise:
+Rewrite the query above using a subquery (EXISTS) instead of a JOIN
+*/
+UPDATE dbo.Customers1
+SET CompanyName = CompanyName + '+'
+WHERE EXISTS (
+    SELECT 1
+    FROM dbo.Orders AS O
+    WHERE O.CustomerID = dbo.Customers1.CustomerID
+);
+GO
+
+--------------------------------------------------------------------
+-- 3. Column order evaluation in UPDATE (and swapping values)
+--------------------------------------------------------------------
+
+DROP TABLE IF EXISTS dbo.UPDATE_Test;
+GO
+
+CREATE TABLE dbo.UPDATE_Test
+(
+    Col1 INT,
+    Col2 INT
+);
+GO
+
+INSERT INTO dbo.UPDATE_Test
+VALUES (1, 100);
+GO
+
+SELECT * FROM dbo.UPDATE_Test;
+GO
+
+-- Col2 picks up the NEW Col1 value (11), not the original (1)
+UPDATE dbo.UPDATE_Test
+SET Col1 = Col1 + 10,
+    Col2 = Col1 + 10;
+GO
+
+SELECT * FROM dbo.UPDATE_Test;
+GO
+
+-- Reset the data
+DELETE FROM dbo.UPDATE_Test;
+GO
+
+INSERT INTO dbo.UPDATE_Test
+VALUES (1, 100);
+GO
+
+SELECT * FROM dbo.UPDATE_Test;
+GO
+
+-- Swapping column values: both sides of SET use the ORIGINAL row values,
+-- so this correctly swaps Col1 and Col2 in a single statement
+UPDATE dbo.UPDATE_Test
+SET Col1 = Col2,
+    Col2 = Col1;
+GO
+
+SELECT * FROM dbo.UPDATE_Test;
+GO
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------
+-- Combining EXISTS with an extra condition on the target table
+
+
+UPDATE C
+SET CompanyName = 'FERESHTEHCOMPANY'
+FROM Customers1 AS C
+WHERE EXISTS (
+    SELECT 1
+    FROM Orders AS O
+    WHERE C.CustomerID = O.CustomerID
+)
+AND C.State = N'یزد';
+GO
+
+SELECT * FROM Customers1;
+GO
