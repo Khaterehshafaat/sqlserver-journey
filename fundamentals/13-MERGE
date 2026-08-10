@@ -1,13 +1,9 @@
-
 /* =====================================================================
    T-SQL PRACTICE : MERGE STATEMENT
    Topic  : --merge  -->  INSERT + UPDATE + DELETE AT THE SAME TIME
-   Author : Practice script for GitHub
    ===================================================================== */
 
--- -------------------------------------------------------------------
 -- 1) SETUP: DROP & CREATE TARGET (T) AND SOURCE (S) TABLES
--- -------------------------------------------------------------------
 DROP TABLE IF EXISTS dbo.S_Customers, dbo.T_Customers;
 
 CREATE TABLE dbo.T_Customers
@@ -27,11 +23,7 @@ CREATE TABLE dbo.S_Customers
 );
 GO
 
--- -------------------------------------------------------------------
 -- 2) SEED DATA
---    TARGET  = current/old data
---    SOURCE  = new data coming in (some changed, some new, some gone)
--- -------------------------------------------------------------------
 INSERT INTO dbo.T_Customers
 VALUES
     (1, N'شرکت تهران 1',   N'تهران',   '(021) 222-1111'),
@@ -50,13 +42,10 @@ VALUES
     (7, N'شرکت اصفهان 1',  N'اصفهان',  '(031) 333-1111'); -- new
 GO
 
--- Take a look before merging
-SELECT * FROM dbo.S_Customers;   -- new incoming data
-SELECT * FROM dbo.T_Customers;   -- current data (rows 1 & 4 exist only here)
+SELECT * FROM dbo.S_Customers;
+SELECT * FROM dbo.T_Customers;
 
 /* =====================================================================
-   MERGE SYNTAX REFERENCE
-   -----------------------------------------------------------------
    MERGE <Target_TableName>
    USING <Source_TableName>
         ON Predicate
@@ -68,39 +57,22 @@ SELECT * FROM dbo.T_Customers;   -- current data (rows 1 & 4 exist only here)
         DELETE;
    ===================================================================== */
 
--- -------------------------------------------------------------------
 -- 3) THE FULL MERGE: INSERT + UPDATE + DELETE IN ONE STATEMENT
--- -------------------------------------------------------------------
 MERGE INTO dbo.T_Customers AS T          -- TARGET: table being modified
 USING       dbo.S_Customers AS S         -- SOURCE: table with new data
     ON  T.CustomerID = S.CustomerID
-WHEN MATCHED THEN                        -- key exists in both -> UPDATE target
+WHEN MATCHED THEN                        -- key exists in both -> UPDATE
     UPDATE SET
         T.CompanyName = S.CompanyName,
         T.City        = S.City,
         T.Phone       = S.Phone
-WHEN NOT MATCHED THEN                    -- key only in SOURCE -> INSERT into target
+WHEN NOT MATCHED THEN                    -- key only in SOURCE -> INSERT
     INSERT (CustomerID, CompanyName, City, Phone)
     VALUES (S.CustomerID, S.CompanyName, S.City, S.Phone)
-WHEN NOT MATCHED BY SOURCE THEN          -- key only in TARGET -> DELETE from target
+WHEN NOT MATCHED BY SOURCE THEN          -- key only in TARGET -> DELETE
     DELETE
 ;   -- MERGE always requires a terminating semicolon
 
--- -------------------------------------------------------------------
 -- 4) VERIFY RESULT: TARGET now mirrors SOURCE exactly
--- -------------------------------------------------------------------
 SELECT * FROM dbo.S_Customers;
 SELECT * FROM dbo.T_Customers;
-
-/* =====================================================================
-   NOTES
-   -----------------------------------------------------------------
-   - Row 1 & 4 (only in T) were DELETEd.
-   - Row 2 & 5 (changed values) were UPDATEd.
-   - Row 3 (identical) was matched but left as-is (no visible change).
-   - Row 6 & 7 (only in S) were INSERTed.
-   - CustomerID is PRIMARY KEY in S, so duplicate CustomerID=3/7
-     company name is fine since CustomerID 7 is a different key.
-   - You can also add OUTPUT $action, inserted.*, deleted.* to log
-     exactly what MERGE did per row.
-   ===================================================================== */
