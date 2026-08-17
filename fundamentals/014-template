@@ -1,0 +1,86 @@
+USE TehranDataDB;
+GO
+
+-- To specify custom columns in a SELECT query, a variable cannot be used directly here
+DECLARE @Col VARCHAR(50) = 'CustomerID';
+SELECT @Col FROM dbo.Customers;
+GO
+
+-- To specify a custom column for a WHERE condition, a variable cannot be used directly here
+DECLARE @Col VARCHAR(50) = 'CustomerID';
+SELECT * FROM dbo.Customers
+	WHERE @Col > 80;
+GO
+--------------------------------------------------------------------
+
+/*
+EXEC or EXECUTE
+Can be used with both Unicode and non-Unicode strings
+*/
+
+DECLARE @Col VARCHAR(50) = 'CustomerID';
+DECLARE @Sql VARCHAR(200) = 'SELECT ' + @Col +' FROM dbo.Customers';
+--PRINT @Sql
+EXEC (@Sql); -- Don't forget the parentheses!
+GO
+
+DECLARE @City NVARCHAR(20) = N'Tehran';
+DECLARE @Sql NVARCHAR(200) = 'SELECT * FROM dbo.Customers WHERE City = N''' + @City +'''';
+--PRINT @Sql
+EXEC (@Sql); -- Don't forget the parentheses!
+GO
+--------------------------------------------------------------------
+
+/*
+sp_executesql
+Can only be used with Unicode strings
+Only one of the following data types can be used with this method:
+NTEXT/NCHAR/NVARCHAR
+*/
+
+DECLARE @Col NVARCHAR(50) = 'CustomerID';
+DECLARE @Sql NVARCHAR(200) = 'SELECT ' + @Col +' FROM dbo.Customers';
+--PRINT @Sql;
+EXEC sp_executesql @Sql;
+GO
+
+-- Equivalent to the query above
+EXEC sp_executesql N'SELECT CustomerID FROM dbo.Customers';
+GO
+
+-- This is incorrect!
+EXEC sp_executesql 'SELECT @@VERSION'
+GO
+
+-- Corrected version of the query above
+EXEC sp_executesql N'SELECT @@VERSION'
+GO
+
+-- First method: parameterized
+EXEC sp_executesql N'SELECT * FROM dbo.Orders WHERE CustomerID = @Customerid',
+	N'@Customerid INT', @Customerid = 80;
+GO
+
+EXEC sp_executesql N'SELECT * FROM dbo.Orders WHERE OrderID = @OrderID AND CustomerID = @Customerid',
+	N'@OrderID INT, @Customerid INT', @OrderID=10249 ,@Customerid=79;
+GO
+
+-- Second method: parameterized
+DECLARE @Sql AS NVARCHAR(100);
+SET @Sql = N'SELECT OrderID, CustomerID, EmployeeID, Orderdate FROM dbo.Orders
+				WHERE OrderID = @OrderID ;';
+EXEC sp_executesql
+	@stmt = @sql,
+	@params = N'@OrderID AS INT',
+	@OrderID = 10250;
+GO -- Parameter order matters
+
+-- ???
+DECLARE @Sql AS NVARCHAR(100); /*DECLARE @Sql AS NVARCHAR(200)*/
+SET @Sql = N'SELECT OrderID, CustomerID, EmployeeID, Orderdate FROM dbo.Orders
+				WHERE OrderID BETWEEN @Min AND @Max';
+EXEC sp_executesql
+	@stmt = @Sql,
+	@params = N'@Min AS INT, @MAX AS INT',
+	@Min= 10248, @Max= 10250;
+GO
