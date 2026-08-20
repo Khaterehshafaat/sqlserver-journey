@@ -1,14 +1,4 @@
---------------------------------------------------------------------
-/*
-دوره آموزشی کوئری‌نویسی در SQL Server
-Email:       R.Afkhamnia@gmail.com
-LinkedIn:	 https://www.linkedin.com/in/rezaafkhamnia/
-YouTube:	 https://www.youtube.com/@RezaAfkhamnia
-Created By:  Reza Afkhamnia
-*/
---------------------------------------------------------------------
 
-/*
 	TehranDataAd - Window Functions Exercise
 	-----------------------------------------
 	Demonstrates three equivalent ways to compute, for each order:
@@ -190,3 +180,381 @@ SELECT
 	val - AVG(val) OVER() AS Diff_All
 FROM Sales.OrderValues AS O;
 GO
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# SQL Window Functions – ROW_NUMBER() --RANKING NUMBERS
+
+## Basic `ROW_NUMBER()` Example
+
+```sql
+SELECT
+    *,
+    ROW_NUMBER() OVER(ORDER BY orderid) AS Num
+FROM Sales.OrderValues;
+GO
+
+SELECT
+    orderid, val,
+    ROW_NUMBER() OVER(ORDER BY orderid) AS Row_Num
+FROM Sales.OrderValues;
+GO
+```
+
+### Class Exercise
+
+Can you rewrite the query above **without using a Window Function**?
+
+```sql
+SELECT
+    orderid, val,
+    (SELECT COUNT(*)
+     FROM Sales.OrderValues AS O2
+     WHERE O2.orderid <= O1.orderid) AS Row_Num
+FROM Sales.OrderValues AS O1;
+GO
+```
+
+---
+
+## Ordering by Multiple Columns
+
+`ROW_NUMBER()` can order the rows using more than one column.
+
+```sql
+SELECT
+    orderid, custid, empid, val,
+    ROW_NUMBER() OVER(ORDER BY custid DESC, empid) AS Row_Num
+FROM Sales.OrderValues;
+GO
+```
+
+In this example, rows are first ordered by `custid` in descending order. If multiple rows have the same `custid`, `empid` is used as the second sorting criterion.
+
+---
+
+## Effect of an Additional `ORDER BY`
+
+The following two queries produce the same row numbers because the `ORDER BY` inside the `OVER()` clause determines how `ROW_NUMBER()` is assigned.
+
+### Query 1
+
+```sql
+SELECT
+    orderid, orderdate, val,
+    ROW_NUMBER() OVER(ORDER BY orderdate) AS Row_Num
+FROM Sales.OrderValues;
+GO
+```
+
+### Query 2
+
+```sql
+SELECT
+    orderid, orderdate, val,
+    ROW_NUMBER() OVER(ORDER BY orderdate) AS Row_Num
+FROM Sales.OrderValues
+ORDER BY orderid;
+GO
+```
+
+The additional `ORDER BY` outside the window function does **not** change how `Row_Num` is calculated. It only changes the order in which the final results are displayed.
+
+However, if the final query uses a different `ORDER BY`, the displayed order of the rows can be different from the order represented by `Row_Num`.
+
+```sql
+SELECT
+    orderid, val,
+    ROW_NUMBER() OVER(ORDER BY orderid) AS Row_Num
+FROM Sales.OrderValues
+ORDER BY val DESC;
+GO
+```
+
+Here, `Row_Num` is still assigned according to `orderid`, while the final result is displayed according to `val DESC`.
+
+---
+
+## Removing the `Sort` Operation from the `ORDER BY` Clause of `OVER()`
+
+```sql
+DROP TABLE IF EXISTS Test_Cost;
+GO
+
+CREATE TABLE Test_Cost
+(
+    ID INT IDENTITY,
+    Family NVARCHAR(100)
+);
+GO
+
+INSERT INTO Test_Cost
+    VALUES (N'بهرامی'),(N'سعادت'),(N'پویا'),(N'اکبری'),(N'شجاعیان');
+GO 1000
+
+SELECT * FROM Test_Cost;
+GO
+```
+
+When ordering by an actual column, SQL Server may need to perform a `Sort` operation.
+
+```sql
+SELECT
+    *, ROW_NUMBER() OVER(ORDER BY Family) AS Row_Num
+FROM Test_Cost;
+GO
+```
+
+In the execution plan, a `Sort` operator can be observed because the rows need to be ordered by `Family`.
+
+### Using a Constant Expression
+
+```sql
+SELECT
+    *, ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS Row_Num
+FROM Test_Cost;
+GO
+```
+
+A `Sort` operator will not be required because there is no meaningful ordering criterion.
+
+The same idea can be demonstrated using constant values:
+
+```sql
+SELECT
+    *, ROW_NUMBER() OVER(ORDER BY (SELECT 10)) AS Row_Num
+FROM Test_Cost;
+GO
+
+SELECT
+    *, ROW_NUMBER() OVER(ORDER BY (SELECT 1)) AS Row_Num
+FROM Test_Cost;
+GO
+```
+
+These expressions effectively tell SQL Server that the rows do not need to be sorted based on a particular column.
+
+### `ROW_NUMBER()` Requires an `ORDER BY` Expression
+
+The following query is invalid because `ROW_NUMBER()` requires an `ORDER BY` clause inside `OVER()` in SQL Server.
+
+```sql
+SELECT
+    *, ROW_NUMBER() OVER() AS Row_Num
+FROM Test_Cost;
+GO
+```
+
+Similarly, using `NULL` directly as the `ORDER BY` expression is not valid:
+
+```sql
+SELECT
+    orderid, orderdate, val,
+    ROW_NUMBER() OVER(ORDER BY NULL) AS Row_Num
+FROM Sales.OrderValues;
+GO
+```
+
+A constant scalar subquery such as `(SELECT NULL)` can be used instead.
+
+---
+
+## `ROW_NUMBER()` Cannot Be Used Directly in the `WHERE` Clause
+
+```sql
+DROP TABLE IF EXISTS T1;
+GO
+
+CREATE TABLE T1
+(
+    Col1 CHAR(1) NOT NULL
+);
+GO
+
+INSERT INTO T1
+VALUES ('A'),('B'),('C'),('D'),('E'),('F');
+GO
+
+SELECT * FROM T1;
+GO
+```
+
+Consider the following query:
+
+```sql
+SELECT
+    Col1
+FROM dbo.T1
+WHERE col1 > 'B'
+  AND ROW_NUMBER() OVER(ORDER BY col1) <= 3;
+GO
+```
+
+This query is invalid because a window function cannot be used directly in the `WHERE` clause.
+
+The same limitation applies when trying to reference the `ROW_NUMBER()` alias directly:
+
+```sql
+SELECT
+    orderid, orderdate, val,
+    ROW_NUMBER() OVER(ORDER BY orderdate) AS Row_Num
+FROM Sales.OrderValues
+WHERE Row_Num > 100
+ORDER BY Row_Num;
+GO
+```
+
+This is also invalid because the `WHERE` clause is evaluated before the `SELECT` list, so the alias `Row_Num` is not yet available.
+
+Trying to place the window function directly inside `WHERE` is invalid as well:
+
+```sql
+SELECT
+    orderid, orderdate, val,
+    ROW_NUMBER() OVER(ORDER BY orderdate) AS Row_Num
+FROM Sales.OrderValues
+WHERE ROW_NUMBER() OVER(ORDER BY orderdate) > 100
+ORDER BY Row_Num;
+GO
+```
+
+---
+
+## Using a CTE to Filter by `ROW_NUMBER()`
+
+A common solution is to calculate the window function inside a **Common Table Expression (CTE)** and then filter the result in an outer query.
+
+```sql
+WITH CTE
+AS
+(
+    SELECT
+        orderid, orderdate, val,
+        ROW_NUMBER() OVER(ORDER BY orderdate) AS Row_Num
+    FROM Sales.OrderValues
+)
+SELECT *
+FROM CTE
+WHERE Row_Num > 100;
+GO
+```
+
+The important idea is that `Row_Num` is calculated first inside the CTE. The outer query can then use it in the `WHERE` clause.
+
+---
+
+## Using a Derived Table
+
+The same problem can also be solved using a **Derived Table**.
+
+```sql
+SELECT *
+FROM
+(
+    SELECT
+        orderid, orderdate, val,
+        ROW_NUMBER() OVER(ORDER BY orderdate) AS Row_Num
+    FROM Sales.OrderValues
+) AS Tmp
+WHERE Tmp.Row_Num > 100;
+GO
+```
+
+Both the CTE and Derived Table approaches allow us to filter the results of a window function.
+
+---
+
+## `DISTINCT` and `ROW_NUMBER()`
+
+First, examine the employees table:
+
+```sql
+SELECT * FROM HR.Employees;
+GO
+```
+
+Consider the following query:
+
+```sql
+SELECT
+    DISTINCT country,
+    ROW_NUMBER() OVER(ORDER BY country) AS rownum
+FROM HR.Employees;
+GO
+```
+
+This does **not** return one row per distinct country because `ROW_NUMBER()` is calculated before `DISTINCT` removes duplicate rows.
+
+### Class Exercise
+
+Suppose we want the output to look like this:
+
+```text
+country    Row_Num
+--------   -------
+UK            1
+USA           2
+```
+
+The query needs to first retrieve the distinct countries and then apply `ROW_NUMBER()`.
+
+### Solution Using a CTE
+
+```sql
+WITH Emp_Countries
+AS
+(
+    SELECT DISTINCT country
+    FROM HR.Employees
+)
+SELECT
+    country,
+    ROW_NUMBER() OVER(ORDER BY country) AS Row_Num
+FROM Emp_Countries;
+GO
+```
+
+### Solution Using a Derived Table
+
+```sql
+SELECT
+    Tmp.country,
+    ROW_NUMBER() OVER(ORDER BY country) AS Row_Num
+FROM
+(
+    SELECT DISTINCT country
+    FROM HR.Employees
+) AS Tmp;
+GO
+```
+
+### Key Takeaways
+
+* `ROW_NUMBER()` assigns a unique sequential number to each row.
+* The `ORDER BY` inside `OVER()` determines how row numbers are assigned.
+* An outer `ORDER BY` controls the final display order, not the calculation of `ROW_NUMBER()`.
+* `ROW_NUMBER()` cannot be used directly in the `WHERE` clause.
+* To filter by a window function, use a **CTE** or **Derived Table**.
+* When using `DISTINCT` with `ROW_NUMBER()`, calculate `DISTINCT` first if you want one row per unique value.
+* `ROW_NUMBER()` in SQL Server requires an `ORDER BY` expression inside `OVER()`.
+
