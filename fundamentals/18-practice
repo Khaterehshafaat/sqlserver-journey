@@ -172,3 +172,57 @@ SELECT
     ) AS DaysToNextOrder
 FROM Orders
 ORDER BY CustomerID, OrderDate, OrderID;
+
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+QUESTION 5
+
+
+-- =====================================================================
+-- Question: Monthly Cumulative Sales per Employee
+-- The sales manager wants to see, throughout each month, what each
+-- employee's cumulative sales total has reached, in order to track
+-- progress toward their target.
+--
+-- Expected output:
+--   - Employee
+--   - Month
+--   - Order Date
+--   - Order Amount
+--   - Cumulative Sales within that Month
+-- =====================================================================
+
+-- Step 1: Calculate the total amount of each order
+--         (Quantity * UnitPrice, adjusted for discount),
+--         along with the year and month it belongs to
+WITH EmpOrder AS (
+    SELECT
+        o.EmployeeID,
+        YEAR(o.OrderDate)  AS YearOrder,
+        MONTH(o.OrderDate) AS MonthOrder,
+        o.OrderDate,
+        o.OrderID,
+        SUM(od.Quantity * od.UnitPrice * (1 - od.Discount)) AS OrderAmount
+    FROM Orders AS o
+    INNER JOIN [Order Details] AS od
+        ON o.OrderID = od.OrderID
+    GROUP BY o.EmployeeID, YEAR(o.OrderDate), MONTH(o.OrderDate), o.OrderDate, o.OrderID
+)
+
+-- Step 2: Calculate the running (cumulative) sales total per employee,
+--         resetting at the start of each month
+SELECT
+    e.EmployeeID,
+    e.YearOrder,
+    e.MonthOrder,
+    e.OrderDate,
+    e.OrderID,
+    e.OrderAmount,
+    SUM(e.OrderAmount) OVER (
+        PARTITION BY e.EmployeeID, e.YearOrder, e.MonthOrder
+        ORDER BY e.OrderDate, e.OrderID
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS RunningOrderAmount
+FROM EmpOrder AS e
+ORDER BY e.EmployeeID, e.YearOrder, e.MonthOrder, e.OrderDate, e.OrderID;
