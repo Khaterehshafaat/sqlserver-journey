@@ -400,3 +400,364 @@ FROM Sales.OrderValues;
 GO
 
 --------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------
+-- FIRST_VALUE()
+-- Ordering
+--
+-- Default framing:
+-- RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+--------------------------------------------------------------------
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    FIRST_VALUE(val) OVER (
+        ORDER BY orderdate, orderid
+    ) AS F_Val
+FROM Sales.OrderValues;
+GO
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    FIRST_VALUE(val) OVER (
+        ORDER BY orderdate, orderid
+        ROWS BETWEEN UNBOUNDED PRECEDING
+                 AND CURRENT ROW
+    ) AS F_Val
+FROM Sales.OrderValues;
+GO
+
+--------------------------------------------------------------------
+-- Current row and the previous 2 rows
+--------------------------------------------------------------------
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    FIRST_VALUE(val) OVER (
+        ORDER BY orderdate, orderid
+        ROWS 2 PRECEDING
+    ) AS F_Val
+FROM Sales.OrderValues;
+GO
+
+--------------------------------------------------------------------
+-- Ordering & Partitioning
+--
+-- Default framing:
+-- RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+--------------------------------------------------------------------
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    FIRST_VALUE(val) OVER (
+        PARTITION BY custid
+        ORDER BY orderdate, orderid
+    ) AS F_Val
+FROM Sales.OrderValues;
+GO
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    FIRST_VALUE(val) OVER (
+        PARTITION BY custid
+        ORDER BY orderdate, orderid
+        ROWS BETWEEN CURRENT ROW
+                 AND 2 FOLLOWING
+    ) AS F_Val
+FROM Sales.OrderValues;
+GO
+
+--------------------------------------------------------------------
+-- FIRST_VALUE() vs MIN()
+--
+-- FIRST_VALUE() returns the value from the first row
+-- according to the specified ordering.
+-- MIN() returns the minimum value.
+--------------------------------------------------------------------
+
+DROP TABLE IF EXISTS Test_First_Min;
+GO
+
+CREATE TABLE Test_First_Min
+(
+    Emp_ID   VARCHAR(10),
+    HireDate DATE NOT NULL,
+    Salary   INT NOT NULL
+);
+GO
+
+INSERT INTO Test_First_Min
+VALUES
+    ('Emp1', '2018-01-01', 20000),
+    ('Emp2', '2018-02-15', 19000),
+    ('Emp3', '2018-03-12', 22000),
+    ('Emp4', '2018-04-07', 25000),
+    ('Emp5', '2018-05-26', 18500);
+GO
+
+SELECT *
+FROM Test_First_Min;
+GO
+
+SELECT
+    Emp_ID,
+    Salary,
+    HireDate,
+    FIRST_VALUE(HireDate) OVER (
+        ORDER BY Salary
+        RANGE BETWEEN UNBOUNDED PRECEDING
+                  AND UNBOUNDED FOLLOWING
+    ) AS First_Val,
+    MIN(HireDate) OVER (
+        ORDER BY Salary
+        RANGE BETWEEN UNBOUNDED PRECEDING
+                  AND UNBOUNDED FOLLOWING
+    ) AS Min_Val
+FROM Test_First_Min;
+GO
+
+--------------------------------------------------------------------
+-- Invalid Syntax
+--------------------------------------------------------------------
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    FIRST_VALUE(val) OVER () AS F_Val
+FROM Sales.OrderValues;
+GO
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    FIRST_VALUE(val) OVER (
+        PARTITION BY custid
+    ) AS F_Val
+FROM Sales.OrderValues;
+GO
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    FIRST_VALUE(val) OVER (
+        PARTITION BY custid
+        ROWS BETWEEN UNBOUNDED PRECEDING
+                 AND CURRENT ROW
+    ) AS F_Val
+FROM Sales.OrderValues;
+GO
+
+--------------------------------------------------------------------
+-- LAST_VALUE()
+-- Ordering
+--
+-- Default framing:
+-- RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+--------------------------------------------------------------------
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    LAST_VALUE(val) OVER (
+        ORDER BY orderdate, orderid
+    ) AS L_Val
+FROM Sales.OrderValues;
+GO
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    LAST_VALUE(val) OVER (
+        ORDER BY orderdate, orderid
+        ROWS BETWEEN UNBOUNDED PRECEDING
+                 AND CURRENT ROW
+    ) AS L_Val
+FROM Sales.OrderValues;
+GO
+
+--------------------------------------------------------------------
+-- Current row and the next 3 rows
+--------------------------------------------------------------------
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    LAST_VALUE(val) OVER (
+        ORDER BY orderdate, orderid
+        ROWS BETWEEN CURRENT ROW
+                 AND 3 FOLLOWING
+    ) AS L_Val
+FROM Sales.OrderValues;
+GO
+
+--------------------------------------------------------------------
+-- Ordering & Partitioning
+--
+-- Default framing:
+-- RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+--------------------------------------------------------------------
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    LAST_VALUE(val) OVER (
+        PARTITION BY custid
+        ORDER BY orderdate, orderid
+    ) AS L_Val
+FROM Sales.OrderValues;
+GO
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    LAST_VALUE(val) OVER (
+        PARTITION BY custid
+        ORDER BY orderdate, orderid
+        ROWS BETWEEN UNBOUNDED PRECEDING
+                 AND UNBOUNDED FOLLOWING
+    ) AS L_Val
+FROM Sales.OrderValues;
+GO
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    LAST_VALUE(val) OVER (
+        PARTITION BY custid
+        ORDER BY orderdate, orderid
+        ROWS BETWEEN CURRENT ROW
+                 AND 2 FOLLOWING
+    ) AS L_Val
+FROM Sales.OrderValues;
+GO
+
+--------------------------------------------------------------------
+/*
+Class Exercise
+
+Write a query using FIRST_VALUE() and LAST_VALUE()
+to display the first and last order amount for each customer
+next to every row.
+
+Expected output:
+
+custid    orderdate    orderid      val     F_Val     L_Val
+-------  -----------  ---------  --------  --------  --------
+1         2017-08-25   10643      814.50    814.50    933.50
+1         2017-10-03   10692      878.00    814.50    933.50
+1         2017-10-13   10702      330.00    814.50    933.50
+1         2018-01-15   10835      845.80    814.50    933.50
+1         2018-03-16   10952      471.20    814.50    933.50
+1         2018-04-09   11011      933.50    814.50    933.50
+...
+91        2016-12-05   10374      459.00    459.00    591.60
+91        2017-07-25   10611      808.00    459.00    591.60
+91        2017-12-23   10792      399.85    459.00    591.60
+91        2018-02-04   10870      160.00    459.00    591.60
+91        2018-02-25   10906      427.50    459.00    591.60
+91        2018-04-03   10998      686.00    459.00    591.60
+91        2018-04-23   11044      591.60    459.00    591.60
+*/
+--------------------------------------------------------------------
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    FIRST_VALUE(val) OVER (
+        PARTITION BY custid
+        ORDER BY orderdate, orderid
+    ) AS F_Val,
+    LAST_VALUE(val) OVER (
+        PARTITION BY custid
+        ORDER BY orderdate, orderid
+        ROWS BETWEEN UNBOUNDED PRECEDING
+                 AND UNBOUNDED FOLLOWING
+    ) AS L_Val
+FROM Sales.OrderValues;
+GO
+
+--------------------------------------------------------------------
+-- Invalid Syntax
+--------------------------------------------------------------------
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    LAST_VALUE(val) OVER () AS L_Val
+FROM Sales.OrderValues;
+GO
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    LAST_VALUE(val) OVER (
+        PARTITION BY custid
+    ) AS L_Val
+FROM Sales.OrderValues;
+GO
+
+SELECT
+    custid,
+    orderdate,
+    orderid,
+    val,
+    LAST_VALUE(val) OVER (
+        PARTITION BY custid
+        ROWS BETWEEN UNBOUNDED PRECEDING
+                 AND CURRENT ROW
+    ) AS L_Val
+FROM Sales.OrderValues;
+GO
+
+--------------------------------------------------------------------
