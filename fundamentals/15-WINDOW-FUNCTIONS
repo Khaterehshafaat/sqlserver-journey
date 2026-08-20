@@ -934,3 +934,338 @@ The main difference is how each function handles **ties**.
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# SQL Window Functions – `NTILE()`
+
+## Introduction to `NTILE()`
+
+`NTILE()` is a window function that divides the ordered rows into a specified number of approximately equal-sized groups, called **tiles** or **buckets**.
+
+```sql
+USE TehranDataAd;
+GO
+```
+
+---
+
+## Dividing Data into 10 Tiles
+
+`Sales.OrderValues` contains **830 records**.
+
+When dividing 830 rows into 10 tiles:
+
+```text
+830 / 10 = 83
+830 % 10 = 0
+```
+
+Therefore, each tile contains exactly **83 rows**.
+
+```sql
+SELECT
+    orderid,
+    val,
+    ROW_NUMBER() OVER(ORDER BY val) AS Row_Num,
+    NTILE(10) OVER(ORDER BY val) AS Tile_Num
+FROM Sales.OrderValues;
+GO
+```
+
+`ROW_NUMBER()` assigns a unique sequential number to each row, while `NTILE(10)` divides the ordered rows into 10 groups.
+
+---
+
+## Dividing Data into 100 Tiles
+
+With 830 records and 100 tiles:
+
+```text
+830 / 100 = 8
+830 % 100 = 30
+```
+
+This means:
+
+* 30 tiles contain **9 rows**
+* 70 tiles contain **8 rows**
+
+```sql
+SELECT
+    orderid,
+    val,
+    ROW_NUMBER() OVER(ORDER BY val) AS Row_Num,
+    NTILE(100) OVER(ORDER BY val) AS Tile_Num
+FROM Sales.OrderValues;
+GO
+```
+
+When the number of rows cannot be divided evenly, `NTILE()` distributes the extra rows among the earlier tiles.
+
+---
+
+## Class Exercise – Quarterly Sales Ranking for 2017
+
+### Objective
+
+Calculate the total sales for each month in 2017 and divide the months into **four quartiles**, from the lowest total sales to the highest.
+
+Expected output:
+
+```text
+OrderMonth    Total       Tile_Num
+----------    ----------  --------
+6             36362.82       1
+2             38483.64       1
+3             38547.23       1
+11            43533.80       2
+8             47287.68       2
+7             51020.86       2
+4             53032.95       3
+5             53781.30       3
+9             55629.27       3
+1             61258.08       4
+10            66749.23       4
+12            71398.44       4
+```
+
+### Solution
+
+First, calculate the total sales for each month:
+
+```sql
+WITH CTE AS
+(
+    SELECT
+        MONTH(orderdate) AS OrderMonth,
+        SUM(val) AS Total
+    FROM Sales.OrderValues
+    WHERE orderdate BETWEEN '2017-01-01' AND '2017-12-31'
+    GROUP BY MONTH(orderdate)
+)
+SELECT
+    OrderMonth,
+    Total,
+    NTILE(4) OVER(ORDER BY Total) AS Tile_Num
+FROM CTE;
+GO
+```
+
+Because there are 12 months and 4 tiles:
+
+```text
+12 / 4 = 3
+```
+
+Each quartile contains exactly 3 months.
+
+* **Tile 1:** Lowest 25% of monthly sales
+* **Tile 2:** Lower-middle 25%
+* **Tile 3:** Upper-middle 25%
+* **Tile 4:** Highest 25%
+
+---
+
+# Using `NTILE()` to Create Price Categories
+
+The following table contains product prices:
+
+```sql
+DROP TABLE IF EXISTS dbo.Price;
+GO
+
+CREATE TABLE dbo.Price
+(
+    ID INT IDENTITY,
+    ProductName NVARCHAR(20),
+    Price INT
+);
+GO
+
+INSERT INTO dbo.Price
+VALUES
+    (N'کالای 1', 100),
+    (N'کالای 2', 200),
+    (N'کالای 3', 300),
+    (N'کالای 4', 200),
+    (N'کالای 5', 250),
+    (N'کالای 6', 200),
+    (N'کالای 7', 100),
+    (N'کالای 8', 400),
+    (N'کالای 9', 450),
+    (N'کالای 10', 100);
+GO
+
+SELECT *
+FROM dbo.Price;
+GO
+```
+
+## Initial Approach
+
+We might try to divide the products into three price categories:
+
+```sql
+SELECT
+    ProductName,
+    Price,
+    CASE NTILE(3) OVER (ORDER BY Price)
+        WHEN 1 THEN 'Cheap'
+        WHEN 2 THEN 'Normal'
+        ELSE 'Expensive'
+    END AS Price_Type
+FROM dbo.Price;
+GO
+```
+
+### What Is the Problem?
+
+The problem is that `NTILE()` operates on **rows**, not on distinct price values.
+
+For example, the price `100` appears multiple times and the price `200` also appears multiple times.
+
+Therefore, products with the **same price can be assigned to different tiles**.
+
+For example, one product priced at `200` could be assigned to `Cheap`, while another product with the same price could be assigned to `Normal`.
+
+This creates an inconsistent classification:
+
+```text
+Same Price → Different Categories
+```
+
+If the goal is to ensure that **the same price always belongs to the same category**, we should first create a list of distinct prices.
+
+---
+
+## Solution: Apply `NTILE()` to Distinct Prices
+
+### Step 1 – Get Distinct Prices
+
+```sql
+WITH DisPrice AS
+(
+    SELECT DISTINCT
+        Price
+    FROM dbo.Price
+),
+```
+
+This creates one row for each unique price.
+
+### Step 2 – Assign Tiles to Distinct Prices
+
+```sql
+PriceCategories AS
+(
+    SELECT
+        Price,
+        NTILE(3) OVER (ORDER BY Price) AS Bucket
+    FROM DisPrice
+)
+```
+
+Now `NTILE(3)` is applied to the **unique price values**, rather than individual products.
+
+### Step 3 – Join the Categories Back to the Products
+
+```sql
+SELECT
+    p.ProductName,
+    p.Price,
+    CASE pc.Bucket
+        WHEN 1 THEN 'Cheap'
+        WHEN 2 THEN 'Normal'
+        ELSE 'Expensive'
+    END AS Price_Type
+FROM dbo.Price AS p
+JOIN PriceCategories AS pc
+    ON p.Price = pc.Price;
+GO
+```
+
+### Complete Query
+
+```sql
+WITH DisPrice AS
+(
+    SELECT DISTINCT
+        Price
+    FROM dbo.Price
+),
+PriceCategories AS
+(
+    SELECT
+        Price,
+        NTILE(3) OVER (ORDER BY Price) AS Bucket
+    FROM DisPrice
+)
+SELECT
+    p.ProductName,
+    p.Price,
+    CASE pc.Bucket
+        WHEN 1 THEN 'Cheap'
+        WHEN 2 THEN 'Normal'
+        ELSE 'Expensive'
+    END AS Price_Type
+FROM dbo.Price AS p
+JOIN PriceCategories AS pc
+    ON p.Price = pc.Price;
+GO
+```
+
+### Key Concept
+
+The important difference between the two approaches is:
+
+```text
+NTILE() directly on products
+        ↓
+Groups individual rows
+        ↓
+Same price may receive different categories
+```
+
+versus:
+
+```text
+DISTINCT prices
+        ↓
+NTILE() on unique prices
+        ↓
+Join categories back to products
+        ↓
+Same price always receives the same category
+```
+
+## Key Takeaways
+
+* `NTILE(n)` divides ordered rows into `n` approximately equal-sized groups.
+* `NTILE(4)` can be used to create **quartiles**.
+* `NTILE(100)` can be used to create **percentile-style groups**.
+* When the number of rows is not evenly divisible by the number of tiles, the extra rows are assigned to the earlier tiles.
+* `NTILE()` operates on **rows**, not distinct values.
+* If duplicate values must always receive the same category, apply `NTILE()` to the distinct values first and then join the result back to the original table.
+
+
+
