@@ -1,0 +1,40 @@
+-- Question 1 
+
+=====================================================================
+-- Query: Top 2 Customers per Country by Total Sales
+-- Purpose: Identify the highest-spending customers within each country
+--          to support loyalty programs and targeted marketing campaigns.
+-- =====================================================================
+
+WITH CustomerSales AS (
+    -- Step 1: Aggregate total sales amount per customer
+    SELECT
+        c.Country,
+        c.CustomerID,
+        c.CompanyName,
+        SUM(o.TotalAmount) AS SalesAmount
+    FROM Customers AS c
+    INNER JOIN Orders AS o
+        ON c.CustomerID = o.CustomerID
+    GROUP BY c.Country, c.CustomerID, c.CompanyName
+),
+RankedSales AS (
+    -- Step 2: Rank customers within each country by sales amount (descending)
+    SELECT
+        Country,
+        CustomerID,
+        CompanyName,
+        SalesAmount,
+        RANK() OVER (PARTITION BY Country ORDER BY SalesAmount DESC) AS RankInCountry
+    FROM CustomerSales
+)
+-- Step 3: Return only the top 2 customers per country
+SELECT
+    Country,
+    CustomerID,
+    CompanyName,
+    SalesAmount,
+    RankInCountry
+FROM RankedSales
+WHERE RankInCountry <= 2
+ORDER BY Country, RankInCountry;
