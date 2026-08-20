@@ -136,3 +136,39 @@ SELECT
     ) AS DiffFromPrevOrder
 FROM OrderAmount AS o
 ORDER BY o.EmployeeID, o.OrderDate, o.OrderID;
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------
+QUESTION 4
+-- =====================================================================
+-- Question: Days Until Next Order (per Customer)
+-- The operations manager wants to know, for each order, how much time
+-- passes until that same customer's next order, in order to analyze
+-- customer purchasing patterns.
+--
+-- Expected output:
+--   - Customer
+--   - Current Order
+--   - Current Date
+--   - Next Order Date
+--   - Days Gap
+-- =====================================================================
+
+SELECT
+    CustomerID,
+    OrderID,
+    OrderDate,
+    LEAD(OrderDate) OVER (
+        PARTITION BY CustomerID
+        ORDER BY OrderDate, OrderID
+    ) AS NextOrderDate,
+    DATEDIFF(
+        DAY,
+        OrderDate,
+        LEAD(OrderDate) OVER (
+            PARTITION BY CustomerID
+            ORDER BY OrderDate, OrderID
+        )
+    ) AS DaysToNextOrder
+FROM Orders
+ORDER BY CustomerID, OrderDate, OrderID;
