@@ -1,0 +1,997 @@
+# SQL Window Functions – Window Framing and Advanced Applications
+
+## Window Framing: `ROWS` and `RANGE`
+
+```sql
+USE TehranDataAd;
+GO
+
+SELECT *
+FROM Test_Framing;
+GO
+```
+
+### Default Window Frame
+
+When an aggregate window function such as `SUM()` uses an `ORDER BY` clause inside `OVER()` but does not explicitly specify a window frame, SQL Server applies a default frame.
+
+```sql
+SELECT
+    *,
+    SUM(Val) OVER(
+        PARTITION BY Val
+        ORDER BY Cust_ID
+    ) AS Total
+FROM Test_Framing;
+GO
+```
+
+For aggregate window functions, the default frame is effectively:
+
+```sql
+RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+```
+
+This means that the calculation includes all rows from the beginning of the partition up to the current row, including rows that have the same `ORDER BY` value.
+
+---
+
+## Removing the `ORDER BY`
+
+Consider the following query:
+
+```sql
+SELECT
+    *,
+    SUM(Val) OVER(
+        PARTITION BY Cust_ID
+        ORDER BY Cust_ID
+    ) AS Total
+FROM Test_Framing;
+GO
+```
+
+Since `Cust_ID` is also the partitioning column, all rows within a partition have the same `Cust_ID`.
+
+Therefore, the `ORDER BY` does not provide meaningful ordering within each partition.
+
+The same result can be obtained more simply by removing the `ORDER BY`:
+
+```sql
+SELECT
+    *,
+    SUM(Val) OVER(
+        PARTITION BY Cust_ID
+    ) AS Total
+FROM Test_Framing;
+GO
+```
+
+### Key Idea
+
+```text
+PARTITION BY → Defines the group
+ORDER BY     → Defines the sequence within the group
+```
+
+If there is no meaningful sequence within the partition, `ORDER BY` may not be necessary.
+
+---
+
+# Understanding the Default Frame
+
+The following queries can produce different cumulative results depending on the values being ordered.
+
+```sql
+SELECT
+    *,
+    SUM(Val) OVER(
+        ORDER BY Cust_ID
+    ) AS Total
+FROM Test_Framing;
+GO
+
+SELECT
+    *,
+    SUM(Val) OVER(
+        ORDER BY Val
+    ) AS Total
+FROM Test_Framing;
+GO
+```
+
+The important point is that the `ORDER BY` column determines how the cumulative aggregation is calculated.
+
+When the ordering column contains duplicate values, `RANGE` treats rows with the same ordering value as peers.
+
+---
+
+# `RANGE` with Duplicate Ordering Values
+
+```sql
+SELECT
+    empid,
+    ordermonth,
+    qty,
+    SUM(qty) OVER(
+        ORDER BY ordermonth
+    ) AS Sum_Qty
+FROM Sales.EmpOrders;
+GO
+```
+
+Because no explicit frame is specified, the default frame is effectively:
+
+```sql
+RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+```
+
+If multiple rows have the same `ordermonth`, all rows with that same date are included together in the calculation.
+
+Therefore, the cumulative total advances by the entire group of rows sharing the same `ordermonth`.
+
+---
+
+# Explicit `RANGE` vs. Default Frame
+
+The following three queries have equivalent framing behavior:
+
+### Query 1
+
+```sql
+SELECT
+    empid,
+    ordermonth,
+    qty,
+    SUM(qty) OVER(
+        PARTITION BY empid
+        ORDER BY ordermonth
+        RANGE BETWEEN UNBOUNDED PRECEDING
+                  AND CURRENT ROW
+    ) AS Total
+FROM Sales.EmpOrders;
+GO
+```
+
+### Query 2
+
+```sql
+SELECT
+    empid,
+    ordermonth,
+    qty,
+    SUM(qty) OVER(
+        PARTITION BY empid
+        ORDER BY ordermonth
+        RANGE UNBOUNDED PRECEDING
+    ) AS Total
+FROM Sales.EmpOrders;
+GO
+```
+
+### Query 3
+
+```sql
+SELECT
+    empid,
+    ordermonth,
+    qty,
+    SUM(qty) OVER(
+        PARTITION BY empid
+        ORDER BY ordermonth
+    ) AS Total
+FROM Sales.EmpOrders;
+GO
+```
+
+The third query relies on the default window frame.
+
+---
+
+# `ROWS` vs. `RANGE`
+
+When the combination of `PARTITION BY` and `ORDER BY` uniquely identifies every row, `ROWS` and `RANGE` may produce the same results.
+
+We can compare their execution behavior using:
+
+```sql
+SET STATISTICS IO ON;
+```
+
+### Using `ROWS`
+
+```sql
+SELECT
+    empid,
+    ordermonth,
+    qty,
+    SUM(qty) OVER(
+        PARTITION BY empid
+        ORDER BY ordermonth
+        ROWS BETWEEN UNBOUNDED PRECEDING
+                 AND CURRENT ROW
+    ) AS Total
+FROM Sales.EmpOrders;
+GO
+```
+
+### Using `RANGE`
+
+```sql
+SELECT
+    empid,
+    ordermonth,
+    qty,
+    SUM(qty) OVER(
+        PARTITION BY empid
+        ORDER BY ordermonth
+        RANGE BETWEEN UNBOUNDED PRECEDING
+                  AND CURRENT ROW
+    ) AS Total
+FROM Sales.EmpOrders;
+GO
+```
+
+The important distinction becomes visible when the `ORDER BY` column contains duplicate values.
+
+---
+
+# Difference Between `ROWS` and `RANGE`
+
+To demonstrate the difference, create a small example table:
+
+```sql
+DROP TABLE IF EXISTS dbo.Test_Row_Range;
+GO
+
+CREATE TABLE dbo.Test_Row_Range
+(
+    ID INT NOT NULL PRIMARY KEY,
+    Col1 VARCHAR(10) NOT NULL
+);
+
+INSERT INTO dbo.Test_Row_Range
+VALUES
+    (10, 'A'),
+    (20, 'A'),
+    (30, 'B'),
+    (40, 'B'),
+    (50, 'B'),
+    (60, 'C'),
+    (70, 'C'),
+    (80, 'C'),
+    (90, 'C');
+GO
+```
+
+### Using `ROWS`
+
+```sql
+SELECT
+    ID,
+    Col1,
+    COUNT(*) OVER(
+        ORDER BY Col1
+        ROWS BETWEEN UNBOUNDED PRECEDING
+                 AND CURRENT ROW
+    ) AS Num
+FROM dbo.Test_Row_Range;
+GO
+```
+
+`ROWS` considers the physical sequence of rows.
+
+Conceptually, the count increases one row at a time:
+
+```text
+A → 1
+A → 2
+B → 3
+B → 4
+B → 5
+C → 6
+C → 7
+C → 8
+C → 9
+```
+
+### Using `RANGE`
+
+```sql
+SELECT
+    ID,
+    Col1,
+    COUNT(*) OVER(
+        ORDER BY Col1
+        RANGE BETWEEN UNBOUNDED PRECEDING
+                  AND CURRENT ROW
+    ) AS Num
+FROM dbo.Test_Row_Range;
+GO
+```
+
+`RANGE` treats rows with the same `ORDER BY` value as peers.
+
+Therefore, the results conceptually become:
+
+```text
+A → 2
+A → 2
+B → 5
+B → 5
+B → 5
+C → 9
+C → 9
+C → 9
+C → 9
+```
+
+### Main Difference
+
+```text
+ROWS
+→ Works row by row.
+
+RANGE
+→ Includes all rows with the same ORDER BY value.
+```
+
+This distinction is particularly important when the ordering column contains duplicate values.
+
+---
+
+# Conditional Aggregation with Window Functions
+
+SQL Server does not support the `FILTER (WHERE ...)` syntax used by some other SQL dialects.
+
+The following query is therefore invalid in SQL Server:
+
+```sql
+SELECT
+    empid,
+    ordermonth,
+    qty,
+    qty - AVG(qty) FILTER (
+        WHERE ordermonth >= '2017-07-01'
+    ) OVER(PARTITION BY empid) AS diff
+FROM Sales.EmpOrders;
+GO
+```
+
+Instead, conditional logic can be implemented using `CASE`.
+
+---
+
+# Example – Comparing Monthly Quantity with Second-Half Average
+
+Consider employee `9`.
+
+We want to calculate the difference between each month's `qty` and the employee's **average monthly quantity during the second half of 2017**.
+
+First, inspect the second-half data:
+
+```sql
+SELECT *
+FROM Sales.EmpOrders
+WHERE empid = 9
+  AND ordermonth BETWEEN '2017-07-01' AND '2017-12-31';
+GO
+```
+
+Calculate the average:
+
+```sql
+SELECT
+    AVG(qty) AS Avg_Qty
+FROM Sales.EmpOrders
+WHERE empid = 9
+  AND ordermonth BETWEEN '2017-07-01' AND '2017-12-31';
+GO
+```
+
+The average is:
+
+```text
+Average qty = 87
+```
+
+---
+
+## Solution Without a Window Function
+
+A CTE can be used to calculate the second-half average first.
+
+```sql
+WITH CTE AS
+(
+    SELECT
+        AVG(qty) AS Num
+    FROM Sales.EmpOrders
+    WHERE empid = 9
+      AND ordermonth BETWEEN '2017-07-01' AND '2017-12-31'
+)
+SELECT
+    empid,
+    ordermonth,
+    qty,
+    qty - (SELECT Num FROM CTE) AS Diff_Second
+FROM Sales.EmpOrders
+WHERE empid = 9
+  AND ordermonth BETWEEN '2017-01-01' AND '2017-12-31';
+GO
+```
+
+---
+
+## Solution Using a Window Function
+
+Conditional aggregation can be achieved using `CASE` inside `AVG()`.
+
+```sql
+SELECT
+    empid,
+    ordermonth,
+    qty,
+    qty -
+    AVG(
+        CASE
+            WHEN MONTH(ordermonth) <= 6 THEN NULL
+            ELSE qty
+        END
+    ) OVER() AS Diff_Second
+FROM Sales.EmpOrders
+WHERE empid = 9
+  AND ordermonth BETWEEN '2017-01-01' AND '2017-12-31';
+GO
+```
+
+Because `AVG()` ignores `NULL` values, only the second-half months contribute to the average.
+
+---
+
+# Class Exercise – Calculate the Difference for Each Year
+
+Now extend the previous problem so that the calculation is performed **separately for each year**.
+
+```sql
+SELECT
+    empid,
+    ordermonth,
+    qty,
+    qty -
+    AVG(
+        CASE
+            WHEN MONTH(ordermonth) <= 6 THEN NULL
+            ELSE qty
+        END
+    ) OVER(
+        PARTITION BY YEAR(ordermonth)
+    ) AS Diff
+FROM Sales.EmpOrders
+WHERE empid = 9;
+GO
+```
+
+### Explanation
+
+The expression:
+
+```sql
+PARTITION BY YEAR(ordermonth)
+```
+
+creates a separate partition for each year.
+
+Within each year:
+
+* January through June are converted to `NULL`.
+* July through December are used to calculate the average.
+* The average second-half quantity is subtracted from every row in that year.
+
+If a year does not contain any second-half observations, the corresponding average is `NULL`.
+
+---
+
+# Nested Aggregation with Window Functions
+
+Another common scenario is calculating each employee's total sales and comparing it with the total sales across all employees.
+
+## Query 1 – Employee-Level Total
+
+```sql
+SELECT
+    empid,
+    SUM(val) AS Sum_Emp,
+    SUM(SUM(val)) AS Sum_Emp
+FROM Sales.OrderValues
+GROUP BY empid;
+GO
+```
+
+The second `SUM()` cannot simply be used this way to calculate the grand total.
+
+---
+
+## Using a Subquery
+
+The problem can be solved with a scalar subquery:
+
+```sql
+SELECT
+    empid,
+    SUM(val) AS Sum_Emp,
+    (SELECT SUM(val)
+     FROM Sales.OrderValues) AS Sum_All
+FROM Sales.OrderValues
+GROUP BY empid;
+GO
+```
+
+---
+
+# Employee Share of Total Sales
+
+We can also calculate the difference and percentage relative to total sales.
+
+```sql
+SELECT
+    empid,
+
+    SUM(val) AS Sum_Emp,
+
+    (SELECT SUM(val)
+     FROM Sales.OrderValues) AS Sum_All,
+
+    SUM(val) -
+    (SELECT SUM(val)
+     FROM Sales.OrderValues) AS Diff,
+
+    SUM(val) /
+    (SELECT SUM(val)
+     FROM Sales.OrderValues) * 100 AS Prcnt
+
+FROM Sales.OrderValues
+GROUP BY empid;
+GO
+```
+
+This produces:
+
+* Employee total
+* Overall total
+* Difference from the overall total
+* Employee percentage of overall sales
+
+---
+
+# The "All-at-Once" Concept
+
+The following query is invalid:
+
+```sql
+SELECT
+    empid,
+    SUM(val) AS Sum_Emp,
+
+    (SELECT SUM(val)
+     FROM Sales.OrderValues) AS Sum_All,
+
+    Sum_Emp -
+    (SELECT SUM(val)
+     FROM Sales.OrderValues) AS Diff,
+
+    Sum_Emp /
+    (SELECT SUM(val)
+     FROM Sales.OrderValues) * 100 AS Prcnt
+
+FROM Sales.OrderValues
+GROUP BY empid;
+GO
+```
+
+The reason is that a column alias such as `Sum_Emp` cannot generally be referenced by another expression in the same `SELECT` list.
+
+This is related to SQL Server's logical query processing order.
+
+---
+
+# Using Window Functions with Aggregated Results
+
+A first attempt might be:
+
+```sql
+SELECT
+    empid,
+    SUM(val) AS Sum_Emp,
+    SUM(val) OVER() AS Sum_All,
+    SUM(val) - SUM(val) OVER() AS Diff,
+    SUM(val) / SUM(val) OVER() * 100 AS Prcnt
+FROM Sales.OrderValues
+GROUP BY empid;
+GO
+```
+
+However, this does not correctly apply the window function to the already aggregated employee-level results.
+
+The correct approach is to nest the aggregate inside the window function:
+
+```sql
+SELECT
+    empid,
+    SUM(val) AS Sum_Emp,
+
+    SUM(SUM(val)) OVER() AS Sum_All,
+
+    SUM(val) -
+    SUM(SUM(val)) OVER() AS Diff,
+
+    SUM(val) /
+    SUM(SUM(val)) OVER() * 100 AS Prcnt
+
+FROM Sales.OrderValues
+GROUP BY empid;
+GO
+```
+
+### Why `SUM(SUM(val))`?
+
+The two levels represent two different operations:
+
+```text
+SUM(val)
+    ↓
+Calculate total sales for each employee
+
+SUM(SUM(val)) OVER()
+    ↓
+Calculate the total of all employee-level totals
+```
+
+This is a useful pattern when combining `GROUP BY` with window functions.
+
+---
+
+# Simplifying the Query with a CTE
+
+A CTE can make the logic easier to read.
+
+### Step 1 – Calculate Employee Totals
+
+```sql
+WITH CTE AS
+(
+    SELECT
+        empid,
+        SUM(val) AS Sum_Emp
+    FROM Sales.OrderValues
+    GROUP BY empid
+)
+```
+
+### Step 2 – Apply Window Functions
+
+```sql
+SELECT
+    empid,
+    Sum_Emp,
+
+    SUM(Sum_Emp) OVER() AS Sum_All,
+
+    Sum_Emp -
+    SUM(Sum_Emp) OVER() AS Diff,
+
+    Sum_Emp /
+    SUM(Sum_Emp) OVER() * 100 AS Prcnt
+
+FROM CTE;
+GO
+```
+
+### Complete Query
+
+```sql
+WITH CTE AS
+(
+    SELECT
+        empid,
+        SUM(val) AS Sum_Emp
+    FROM Sales.OrderValues
+    GROUP BY empid
+)
+SELECT
+    empid,
+    Sum_Emp,
+    SUM(Sum_Emp) OVER() AS Sum_All,
+    Sum_Emp - SUM(Sum_Emp) OVER() AS Diff,
+    Sum_Emp / SUM(Sum_Emp) OVER() * 100 AS Prcnt
+FROM CTE;
+GO
+```
+
+This approach separates the problem into two logical steps:
+
+```text
+Step 1 → Aggregate sales by employee
+Step 2 → Apply window functions to the aggregated result
+```
+
+---
+
+# Counting Distinct Employees Over Time
+
+The next example focuses on determining how many **different employees** each customer has interacted with over time.
+
+First, count the number of orders for each customer-employee combination:
+
+```sql
+SELECT
+    custid,
+    empid,
+    COUNT(orderid) AS Num
+FROM Sales.OrderValues
+WHERE custid = 1
+GROUP BY custid, empid
+ORDER BY Num;
+GO
+```
+
+However, the goal is different.
+
+We want to know, for customer `1`, how many **distinct employees** the customer has interacted with at each point in time.
+
+Expected result:
+
+```text
+custid   empid   orderdate    Num_Cust
+------   -----   ----------   --------
+1        6       2017-08-25       1
+1        4       2017-10-03       2
+1        4       2017-10-13       2
+1        1       2018-01-15       3
+1        1       2018-03-16       3
+1        3       2018-04-09       4
+```
+
+---
+
+## Initial Window Function Approach
+
+A first attempt might be:
+
+```sql
+SELECT
+    custid,
+    empid,
+    orderdate,
+    COUNT(orderid) OVER(
+        PARTITION BY custid
+        ORDER BY orderdate
+    ) AS Num_Cust
+FROM Sales.OrderValues
+WHERE custid = 1;
+GO
+```
+
+However, this counts **orders**, not distinct employees.
+
+If the same employee appears again, the count increases again.
+
+---
+
+## Why `COUNT(DISTINCT ...)` Cannot Be Used Here
+
+One might try:
+
+```sql
+SELECT
+    custid,
+    empid,
+    orderdate,
+    COUNT(DISTINCT orderid) OVER(
+        PARTITION BY custid
+        ORDER BY orderdate
+    ) AS Distinct_Emp
+FROM Sales.OrderValues
+WHERE custid = 1;
+GO
+```
+
+However, SQL Server does not support `COUNT(DISTINCT ...)` as a window function in this form.
+
+Therefore, another approach is required.
+
+---
+
+# Solution Using `ROW_NUMBER()`
+
+The key idea is to identify the **first occurrence of each customer-employee combination**.
+
+```sql
+SELECT
+    custid,
+    empid,
+    orderdate,
+    ROW_NUMBER() OVER(
+        PARTITION BY custid, empid
+        ORDER BY orderdate
+    ) AS Row_Num
+FROM Sales.OrderValues
+WHERE custid = 1;
+GO
+```
+
+For each `(custid, empid)` combination:
+
+* The first occurrence receives `Row_Num = 1`.
+* The second occurrence receives `Row_Num = 2`.
+* The third occurrence receives `Row_Num = 3`.
+* And so on.
+
+We only need the first occurrence.
+
+---
+
+# Converting Repeated Employees to `NULL`
+
+We can use `CASE` to keep the employee ID only for its first occurrence:
+
+```sql
+SELECT
+    custid,
+    empid,
+    orderdate,
+    CASE
+        WHEN ROW_NUMBER() OVER(
+            PARTITION BY custid, empid
+            ORDER BY orderdate
+        ) = 1
+        THEN empid
+    END AS Distinct_Emp
+FROM Sales.OrderValues
+WHERE custid = 1;
+GO
+```
+
+The result conceptually looks like:
+
+```text
+custid   empid   orderdate    Distinct_Emp
+------   -----   ----------   ------------
+1        6       2017-08-25       6
+1        4       2017-10-03       4
+1        4       2017-10-13      NULL
+1        1       2018-01-15       1
+1        1       2018-03-16      NULL
+1        3       2018-04-09       3
+```
+
+Now repeated employees are represented by `NULL`.
+
+---
+
+# Using a CTE to Count Distinct Employees
+
+The previous query can be placed inside a CTE.
+
+```sql
+WITH CTE AS
+(
+    SELECT
+        custid,
+        empid,
+        orderdate,
+        CASE
+            WHEN ROW_NUMBER() OVER(
+                PARTITION BY custid, empid
+                ORDER BY orderdate
+            ) = 1
+            THEN empid
+        END AS Distinct_Emp
+    FROM Sales.OrderValues
+    WHERE custid = 1
+)
+SELECT
+    custid,
+    empid,
+    orderdate,
+    COUNT(Distinct_Emp) OVER(
+        PARTITION BY custid
+        ORDER BY orderdate
+    ) AS Num_Cust
+FROM CTE;
+GO
+```
+
+Because `COUNT()` ignores `NULL` values, only the first occurrence of each employee contributes to the cumulative count.
+
+The resulting logic is:
+
+```text
+First employee → count = 1
+New employee   → count = 2
+Same employee  → count stays 2
+New employee   → count = 3
+Same employee  → count stays 3
+New employee   → count = 4
+```
+
+---
+
+# Generalizing the Query
+
+The customer filter can be removed if we want to calculate the number of distinct employees for **every customer** over time.
+
+```sql
+WITH CTE AS
+(
+    SELECT
+        custid,
+        empid,
+        orderdate,
+        CASE
+            WHEN ROW_NUMBER() OVER(
+                PARTITION BY custid, empid
+                ORDER BY orderdate
+            ) = 1
+            THEN empid
+        END AS Distinct_Emp
+    FROM Sales.OrderValues
+)
+SELECT
+    custid,
+    empid,
+    orderdate,
+    COUNT(Distinct_Emp) OVER(
+        PARTITION BY custid
+        ORDER BY orderdate
+    ) AS Num_Cust
+FROM CTE;
+GO
+```
+
+This query can then be converted into a stored procedure by adding parameters such as `@custid` if we want to retrieve the historical number of employees associated with a particular customer.
+
+---
+
+# Key Takeaways
+
+### Window Framing
+
+* `ROWS` processes rows based on their physical sequence.
+* `RANGE` groups rows with the same `ORDER BY` value as peers.
+* When the `ORDER BY` column contains duplicates, `ROWS` and `RANGE` can produce different results.
+* For cumulative calculations, always consider whether duplicate ordering values exist.
+
+### Conditional Window Aggregation
+
+* SQL Server does not support the `FILTER (WHERE ...)` syntax in this context.
+* `CASE` expressions can be used inside aggregate window functions to implement conditional calculations.
+* `AVG()` ignores `NULL`, making `CASE ... THEN NULL` useful for conditional averages.
+
+### Aggregation + Window Functions
+
+* `GROUP BY` reduces the number of rows.
+* Window functions preserve the rows of their input.
+* Nested expressions such as `SUM(SUM(val)) OVER()` can apply a window function to grouped aggregate results.
+* A CTE can make multi-stage aggregation easier to understand.
+
+### Counting Distinct Values Over Time
+
+* SQL Server does not support `COUNT(DISTINCT ...)` as a window function in this form.
+* `ROW_NUMBER()` can identify the first occurrence of each unique combination.
+* Repeated values can be converted to `NULL`.
+* `COUNT()` ignores `NULL`, allowing a cumulative distinct count to be constructed.
+
+The general pattern is:
+
+```text
+ROW_NUMBER()
+      ↓
+Identify first occurrence
+      ↓
+Keep first value / convert duplicates to NULL
+      ↓
+COUNT() OVER()
+      ↓
+Cumulative distinct count
+```
