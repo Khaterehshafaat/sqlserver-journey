@@ -38,3 +38,101 @@ SELECT
 FROM RankedSales
 WHERE RankInCountry <= 2
 ORDER BY Country, RankInCountry;
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------
+
+--Question2
+
+
+-- =====================================================================
+-- Question: Last Order per Customer (CRM - Inactive Customer Detection)
+-- The CRM team wants to find the most recent order for each customer
+-- in order to identify inactive or low-engagement customers.
+--
+-- Expected output:
+--   - Customer
+--   - Order Date
+--   - Order Number
+--   - Recency (days since the last order)
+-- =====================================================================
+
+
+WITH CustOrder AS (
+    SELECT
+        o.CustomerID,
+        o.OrderID,
+        o.OrderDate,
+        ROW_NUMBER() OVER (
+            PARTITION BY o.CustomerID
+            ORDER BY OrderDate DESC, o.OrderID DESC
+        ) AS RN
+    FROM Orders AS o
+),
+
+
+Recency AS (
+    SELECT *
+    FROM CustOrder
+    WHERE RN = 1
+)
+
+SELECT
+    *,
+    DATEDIFF(DAY, r.OrderDate, GETDATE()) AS Recency
+FROM Recency AS r
+ORDER BY Recency DESC;
+
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+QUESTION 3
+-- =====================================================================
+-- Question: Order Amount Change vs. Previous Order (per Employee)
+-- The sales manager wants to know, for each order placed by an employee,
+-- how much the order amount changed compared to that same employee's
+-- previous order.
+--
+-- Expected output:
+--   - Employee
+--   - Order
+--   - Order Date
+--   - Order Amount
+--   - Previous Order Amount
+--   - Difference from Previous Order
+-- =====================================================================
+
+-- Step 1: Calculate the total amount of each order
+--         (Quantity * UnitPrice, adjusted for discount)
+WITH OrderAmount AS (
+    SELECT
+        o.EmployeeID,
+        o.OrderDate,
+        o.OrderID,
+        SUM(od.Quantity * od.UnitPrice * (1 - od.Discount)) AS OrderAmount
+    FROM Orders AS o
+    INNER JOIN [Order Details] AS od
+        ON o.OrderID = od.OrderID
+    GROUP BY o.EmployeeID, o.OrderDate, o.OrderID
+)
+
+SELECT
+    o.EmployeeID,
+    o.OrderDate,
+    o.OrderID,
+    o.OrderAmount,
+    LAG(o.OrderAmount) OVER (
+        PARTITION BY o.EmployeeID
+        ORDER BY o.OrderDate, o.OrderID
+    ) AS PrevOrderAmount,
+    o.OrderAmount - LAG(o.OrderAmount) OVER (
+        PARTITION BY o.EmployeeID
+        ORDER BY o.OrderDate, o.OrderID
+    ) AS DiffFromPrevOrder
+FROM OrderAmount AS o
+ORDER BY o.EmployeeID, o.OrderDate, o.OrderID;
