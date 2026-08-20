@@ -1,0 +1,373 @@
+# SQL Aggregations and Window Functions
+
+## Working with `Sales.OrderValues`
+
+```sql
+USE TehranDataAd;
+GO
+
+SELECT *
+FROM Sales.OrderValues;
+GO
+```
+
+`Sales.OrderValues` is a view that combines order-level information from the sales tables, including aggregated quantities and values.
+
+---
+
+## `GROUP BY` with One Field
+
+Aggregate functions such as `SUM()` and `AVG()` can be used with `GROUP BY` to calculate statistics for each group.
+
+```sql
+SELECT
+    custid,
+    SUM(val) AS Sum_Val,
+    AVG(val) AS Avg_Val
+FROM Sales.OrderValues
+GROUP BY custid;
+GO
+```
+
+This query calculates the **total order value** and **average order value** for each customer.
+
+---
+
+## `GROUP BY` with Multiple Fields
+
+Multiple columns can be included in the `GROUP BY` clause.
+
+```sql
+SELECT
+    custid,
+    orderid,
+    SUM(val) AS SumVal,
+    AVG(val) AS AvgVal
+FROM Sales.OrderValues
+GROUP BY custid, orderid;
+GO
+```
+
+Here, the aggregation is performed for each unique combination of `custid` and `orderid`.
+
+---
+
+# Class Exercise – Customer-Level Order Analysis
+
+### Scenario
+
+For each order placed by **customer 33**, calculate:
+
+1. The percentage of the customer's total order value represented by each order.
+2. The difference between each order's value and the customer's average order value.
+
+First, examine the orders belonging to customer 33:
+
+```sql
+SELECT *
+FROM Sales.OrderValues
+WHERE custid = 33;
+GO
+```
+
+For customer 33:
+
+```text
+Total Order Value = 1488.70
+Average Order Value = 744.35
+```
+
+The expected output is approximately:
+
+```text
+orderid   custid   val       Prcnt    Diff
+-------   ------   --------  -------  -----------
+10268     33       1101.20   73.97     356.85
+10785     33        387.50   26.03    -356.85
+```
+
+---
+
+## Solution Using a CTE
+
+A **Common Table Expression (CTE)** can first calculate the customer's total and average order value.
+
+```sql
+WITH Aggregates AS
+(
+    SELECT
+        custid,
+        SUM(val) AS Sum_Cust,
+        AVG(val) AS Avg_Cust
+    FROM Sales.OrderValues
+    WHERE custid = 33
+    GROUP BY custid
+)
+SELECT
+    O.orderid,
+    O.custid,
+    O.val,
+    CAST(100 * O.val / A.Sum_Cust AS NUMERIC(5, 2)) AS Prcnt,
+    O.val - A.Avg_Cust AS Diff
+FROM Sales.OrderValues AS O
+JOIN Aggregates AS A
+    ON O.custid = A.custid;
+GO
+```
+
+### Explanation
+
+The CTE calculates:
+
+* `Sum_Cust`: Total order value for customer 33.
+* `Avg_Cust`: Average order value for customer 33.
+
+The outer query then uses these aggregated values to calculate:
+
+```text
+Percentage = Order Value / Customer Total × 100
+```
+
+and
+
+```text
+Difference = Order Value - Customer Average
+```
+
+---
+
+# Class Exercise – Customer-Level vs. Overall Calculations
+
+### Updated Scenario
+
+Now extend the previous exercise.
+
+For **every customer and every order**, calculate:
+
+1. The percentage of the order value relative to the customer's total order value.
+2. The difference between the order value and the customer's average order value.
+3. The percentage of the order value relative to the total value of all orders.
+4. The difference between the order value and the overall average order value.
+
+---
+
+## Solution Using Multiple CTEs
+
+```sql
+WITH CustAggregates AS
+(
+    -- Calculate the total and average order value for each customer
+    SELECT
+        custid,
+        SUM(val) AS Sum_Cust,
+        AVG(val) AS Avg_Cust
+    FROM Sales.OrderValues
+    GROUP BY custid
+),
+GrandAggregates AS
+(
+    -- Calculate the total and average across all orders
+    SELECT
+        SUM(val) AS Sum_All,
+        AVG(val) AS Avg_All
+    FROM Sales.OrderValues
+)
+SELECT
+    O.orderid,
+    O.custid,
+    O.val,
+
+    CAST(
+        100 * O.val / CA.Sum_Cust
+        AS NUMERIC(5, 2)
+    ) AS Prcnt_Cust,
+
+    O.val - CA.Avg_Cust AS Diff_Cust,
+
+    CAST(
+        100 * O.val / GA.Sum_All
+        AS NUMERIC(5, 2)
+    ) AS Prcnt_All,
+
+    O.val - GA.Avg_All AS Diff_All
+
+FROM Sales.OrderValues AS O
+
+JOIN CustAggregates AS CA
+    ON O.custid = CA.custid
+
+CROSS JOIN GrandAggregates AS GA;
+GO
+```
+
+### Understanding the Two Levels of Aggregation
+
+The query calculates statistics at two different levels.
+
+**Customer level:**
+
+```text
+Sum_Cust
+Avg_Cust
+```
+
+These values are calculated separately for each customer.
+
+**Overall level:**
+
+```text
+Sum_All
+Avg_All
+```
+
+These values are calculated across all orders and all customers.
+
+`CROSS JOIN` is used because `GrandAggregates` returns a single row containing the overall aggregate values.
+
+---
+
+# Solution Using Subqueries
+
+The same problem can also be solved using correlated subqueries.
+
+```sql
+SELECT
+    orderid,
+    custid,
+    val,
+
+    CAST(
+        100 * val /
+        (
+            SELECT SUM(O2.val)
+            FROM Sales.OrderValues AS O2
+            WHERE O2.custid = O1.custid
+        )
+        AS NUMERIC(5, 2)
+    ) AS Prcnt_Cust,
+
+    val -
+    (
+        SELECT AVG(O2.val)
+        FROM Sales.OrderValues AS O2
+        WHERE O2.custid = O1.custid
+    ) AS Diff_Cust,
+
+    CAST(
+        100 * val /
+        (
+            SELECT SUM(O2.val)
+            FROM Sales.OrderValues AS O2
+        )
+        AS NUMERIC(5, 2)
+    ) AS Prcnt_All,
+
+    val -
+    (
+        SELECT AVG(O2.val)
+        FROM Sales.OrderValues AS O2
+    ) AS Diff_All
+
+FROM Sales.OrderValues AS O1;
+GO
+```
+
+The subqueries calculate the required customer-level and overall aggregates for each row.
+
+---
+
+# Solution Using Window Functions
+
+Window functions provide a much more concise solution because they allow aggregate calculations while keeping the original rows.
+
+```sql
+SELECT
+    orderid,
+    custid,
+    val,
+
+    CAST(
+        100 * val / SUM(val) OVER(PARTITION BY custid)
+        AS NUMERIC(5, 2)
+    ) AS Pct_Cust,
+
+    val - AVG(val) OVER(PARTITION BY custid) AS Diff_Cust,
+
+    CAST(
+        100 * val / SUM(val) OVER()
+        AS NUMERIC(5, 2)
+    ) AS Pct_All,
+
+    val - AVG(val) OVER() AS Diff_All
+
+FROM Sales.OrderValues AS O;
+GO
+```
+
+## Understanding the Window Functions
+
+### Customer-Level Aggregation
+
+```sql
+SUM(val) OVER(PARTITION BY custid)
+```
+
+Calculates the total order value **for each customer** while keeping every individual order row.
+
+Similarly:
+
+```sql
+AVG(val) OVER(PARTITION BY custid)
+```
+
+calculates the average order value for each customer.
+
+### Overall Aggregation
+
+When `PARTITION BY` is omitted:
+
+```sql
+SUM(val) OVER()
+```
+
+calculates the total value across **all orders**.
+
+Likewise:
+
+```sql
+AVG(val) OVER()
+```
+
+calculates the overall average order value.
+
+---
+
+# Comparing the Three Approaches
+
+The same analytical problem can be solved using three different techniques:
+
+| Approach            | Main Idea                                                      |
+| ------------------- | -------------------------------------------------------------- |
+| **CTE**             | Calculate aggregates separately and join them back             |
+| **Subquery**        | Calculate aggregates using correlated subqueries               |
+| **Window Function** | Calculate aggregates directly while preserving individual rows |
+
+### Window Functions Are Often the Most Convenient
+
+For this type of analysis, window functions are particularly useful because they allow us to:
+
+* Keep the original row-level data.
+* Calculate customer-level aggregates.
+* Calculate overall aggregates.
+* Avoid additional joins or repeated correlated subqueries.
+* Perform calculations across different levels of aggregation in a single query.
+
+## Key Takeaways
+
+* `GROUP BY` collapses rows into groups.
+* Window functions calculate values across related rows **without collapsing the original rows**.
+* `PARTITION BY custid` performs calculations separately for each customer.
+* Omitting `PARTITION BY` performs the calculation across the entire result set.
+* CTEs can make multi-step aggregation logic easier to understand.
+* Correlated subqueries can also calculate customer-specific aggregates, but may be less concise.
+* Window functions are often the cleanest approach when both **row-level values and aggregate values** are needed in the same result.
