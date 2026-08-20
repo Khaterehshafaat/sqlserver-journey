@@ -558,3 +558,126 @@ GO
 * When using `DISTINCT` with `ROW_NUMBER()`, calculate `DISTINCT` first if you want one row per unique value.
 * `ROW_NUMBER()` in SQL Server requires an `ORDER BY` expression inside `OVER()`.
 
+
+
+
+
+
+
+
+
+
+# SQL Window Functions – `PARTITION BY` with `ROW_NUMBER()`
+
+## Partitioning by One Column
+
+`PARTITION BY` divides the result set into separate groups.
+`ROW_NUMBER()` then starts numbering from 1 within each partition.
+
+```sql
+USE TehranDataAd;
+GO
+
+SELECT
+    custid, orderid, val,
+    ROW_NUMBER() OVER(
+        PARTITION BY custid
+        ORDER BY orderid
+    ) AS Row_Num
+FROM Sales.OrderValues;
+GO
+```
+
+In this example, each customer (`custid`) represents a separate partition.
+The row number starts from **1 for each customer** and increases according to `orderid`.
+
+---
+
+## Partitioning by Multiple Columns
+
+`PARTITION BY` can contain more than one column.
+
+```sql
+SELECT
+    custid, empid, orderid, val,
+    ROW_NUMBER() OVER(
+        PARTITION BY custid, empid
+        ORDER BY orderid
+    ) AS Row_Num
+FROM Sales.OrderValues;
+GO
+```
+
+Here, a separate partition is created for each unique combination of `custid` and `empid`.
+
+The numbering restarts from **1 for every unique `(custid, empid)` combination**.
+
+---
+
+## `ORDER BY` Is Required for `ROW_NUMBER()`
+
+The following query results in an error because `ROW_NUMBER()` requires an `ORDER BY` expression inside the `OVER()` clause.
+
+```sql
+SELECT
+    orderid, val,
+    ROW_NUMBER() OVER(
+        PARTITION BY empid
+    ) AS Row_Num
+FROM Sales.OrderValues;
+GO
+```
+
+Although `PARTITION BY` is present, there is no `ORDER BY` to determine the order in which the row numbers should be assigned.
+
+Therefore, for `ROW_NUMBER()`, the following structure is required:
+
+```sql
+ROW_NUMBER() OVER(
+    PARTITION BY column_name
+    ORDER BY column_name
+)
+```
+
+---
+
+## `ROW_NUMBER()` Does Not Support Window Framing
+
+The following query results in an error because **ranking functions such as `ROW_NUMBER()` do not support window framing clauses** such as `ROWS BETWEEN`.
+
+```sql
+SELECT
+    custid, empid,
+    ROW_NUMBER() OVER(
+        PARTITION BY empid
+        ORDER BY orderid
+        ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+    ) AS Row_Num
+FROM Sales.OrderValues;
+GO
+```
+
+The `ROWS BETWEEN` clause is a **window frame specification**. It is commonly used with aggregate window functions such as `SUM()`, `AVG()`, `MIN()`, and `MAX()`.
+
+For example:
+
+```sql
+SUM(val) OVER(
+    PARTITION BY custid
+    ORDER BY orderid
+    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+)
+```
+
+However, `ROW_NUMBER()` is a ranking function and does not allow a window frame.
+
+### Key Takeaways
+
+* `PARTITION BY` divides the data into separate groups.
+* `ROW_NUMBER()` starts from **1 within each partition**.
+* Multiple columns can be used in `PARTITION BY`.
+* `ROW_NUMBER()` requires an `ORDER BY` clause inside `OVER()`.
+* `ROW_NUMBER()` does not support window framing such as `ROWS BETWEEN`.
+* Window frames are commonly used with aggregate window functions such as `SUM()` and `AVG()`.
+
+
