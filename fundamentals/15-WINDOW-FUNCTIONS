@@ -681,3 +681,256 @@ However, `ROW_NUMBER()` is a ranking function and does not allow a window frame.
 * Window frames are commonly used with aggregate window functions such as `SUM()` and `AVG()`.
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# SQL Window Functions – `ROW_NUMBER()`, `RANK()`, and `DENSE_RANK()`
+
+## Comparing `ROW_NUMBER()`, `RANK()`, and `DENSE_RANK()`
+
+The following query demonstrates the difference between the three ranking functions.
+
+> **Important:** `orderdate` is not unique. Multiple orders can have the same `orderdate`, which allows us to observe the difference between `RANK()` and `DENSE_RANK()`.
+
+```sql
+SELECT
+    orderid, orderdate, val,
+    ROW_NUMBER() OVER(ORDER BY orderdate DESC) AS Row_Num,
+    RANK()       OVER(ORDER BY orderdate DESC) AS Rnk,
+    DENSE_RANK() OVER(ORDER BY orderdate DESC) AS D_Rnk
+FROM Sales.OrderValues;
+GO
+```
+
+### Key Difference
+
+Suppose several rows have the same `orderdate`:
+
+```text
+orderdate      ROW_NUMBER    RANK    DENSE_RANK
+----------     ----------    ----    ----------
+2018-05-06          1          1          1
+2018-05-06          2          1          1
+2018-05-06          3          1          1
+2018-05-05          4          4          2
+2018-05-04          5          5          3
+```
+
+* **`ROW_NUMBER()`** assigns a unique sequential number to every row, even when values are tied.
+* **`RANK()`** gives the same rank to tied rows and leaves gaps after the tie.
+* **`DENSE_RANK()`** gives the same rank to tied rows but does not leave gaps.
+
+For example, if three rows share rank 1:
+
+```text
+RANK():        1, 1, 1, 4, 5
+DENSE_RANK():  1, 1, 1, 2, 3
+```
+
+---
+
+## Class Exercise – Simulating `RANK()` and `DENSE_RANK()` Without Window Functions
+
+The goal is to reproduce the behavior of `RANK()` and `DENSE_RANK()` without using window functions.
+
+```sql
+SELECT
+    orderid, orderdate, val,
+    (SELECT COUNT(orderdate)
+     FROM Sales.OrderValues AS O2
+     WHERE O2.orderdate > O1.orderdate) + 1 AS Rnk,
+
+    (SELECT COUNT(DISTINCT orderdate)
+     FROM Sales.OrderValues AS O2
+     WHERE O2.orderdate > O1.orderdate) + 1 AS D_Rnk
+FROM Sales.OrderValues AS O1
+ORDER BY orderid DESC;
+GO
+```
+
+### How It Works
+
+For `RANK()`:
+
+```sql
+COUNT(orderdate)
+WHERE O2.orderdate > O1.orderdate
+```
+
+counts the number of rows with a later date. Adding `1` gives the rank of the current row.
+
+For `DENSE_RANK()`:
+
+```sql
+COUNT(DISTINCT orderdate)
+WHERE O2.orderdate > O1.orderdate
+```
+
+counts the number of **distinct dates** that are later than the current date. This produces consecutive ranks without gaps.
+
+---
+
+## `RANK()` and `DENSE_RANK()` with `PARTITION BY`
+
+Ranking can also be performed separately within each customer.
+
+```sql
+SELECT
+    custid, orderid, orderdate, val,
+    RANK()       OVER(
+        PARTITION BY custid
+        ORDER BY orderdate DESC
+    ) AS Rnk,
+
+    DENSE_RANK() OVER(
+        PARTITION BY custid
+        ORDER BY orderdate DESC
+    ) AS D_Rnk
+FROM Sales.OrderValues;
+GO
+```
+
+Here, each customer (`custid`) has a separate ranking.
+
+The ranking starts again from **1 for every customer**.
+
+---
+
+## Class Exercise – Ranking Customers by Number of Orders
+
+### Objective
+
+Use `DENSE_RANK()` to rank customers based on the number of orders they have placed.
+
+Expected output:
+
+```text
+custid    Num_Orders    D_Rnk
+------    ----------    -----
+71            31          1
+20            30          2
+63            28          3
+...
+33             2         20
+43             2         20
+13             1         21
+```
+
+### Step 1 – Count Orders per Customer
+
+```sql
+SELECT
+    custid,
+    COUNT(orderid) AS Num_Orders
+FROM Sales.OrderValues
+GROUP BY custid;
+GO
+```
+
+This query returns the number of orders for each customer.
+
+---
+
+### Step 2 – Applying `DENSE_RANK()`
+
+The following query demonstrates the ranking logic:
+
+```sql
+SELECT
+    custid,
+    COUNT(orderid) AS Sum_Orders,
+    DENSE_RANK() OVER(
+        ORDER BY COUNT(orderid) DESC
+    ) AS D_Rnk
+FROM Sales.OrderValues;
+```
+
+However, this query is missing the required `GROUP BY` clause and therefore is not valid.
+
+The correct version is:
+
+```sql
+SELECT
+    custid,
+    COUNT(orderid) AS Sum_Orders,
+    DENSE_RANK() OVER(
+        ORDER BY COUNT(orderid) DESC
+    ) AS D_Rnk
+FROM Sales.OrderValues
+GROUP BY custid;
+GO
+```
+
+---
+
+## Using a CTE
+
+The same logic can be separated into two steps using a CTE.
+
+First, calculate the number of orders for each customer:
+
+```sql
+WITH CTE AS
+(
+    SELECT
+        custid,
+        COUNT(orderid) AS Sum_Orders
+    FROM Sales.OrderValues
+    GROUP BY custid
+)
+SELECT
+    custid,
+    Sum_Orders,
+    DENSE_RANK() OVER(
+        ORDER BY Sum_Orders DESC
+    ) AS D_Rnk
+FROM CTE;
+GO
+```
+
+### Why Use a CTE?
+
+The CTE makes the logic easier to understand:
+
+1. **First step:** Calculate the number of orders for each customer.
+2. **Second step:** Rank customers based on their order count.
+
+This approach is especially useful when the result of an aggregation needs to be used as an input to a window function.
+
+---
+
+## Summary
+
+| Function       | Ties | Gaps After Ties | Unique Number for Each Row |
+| -------------- | ---- | --------------- | -------------------------- |
+| `ROW_NUMBER()` | No   | No              | Yes                        |
+| `RANK()`       | Yes  | Yes             | No                         |
+| `DENSE_RANK()` | Yes  | No              | No                         |
+
+### Example
+
+If three rows are tied for first place:
+
+```text
+ROW_NUMBER():   1, 2, 3, 4, 5
+RANK():         1, 1, 1, 4, 5
+DENSE_RANK():   1, 1, 1, 2, 3
+```
+
+The main difference is how each function handles **ties**.
+
+
+
